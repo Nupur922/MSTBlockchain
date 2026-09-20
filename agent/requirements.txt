@@ -1,0 +1,23 @@
+# AgriTrust AI — Developer 2: NEWRRO AI & Satellite Oracle Backend
+# Python 3.10+ required
+# Install: pip install -r requirements.txt
+
+# Blockchain & Cryptography
+web3>=6.0.0
+eth-account>=0.8.0
+
+# HTTP Requests (Satellite API clients + Rain API)
+requests>=2.28.0
+
+# Copernicus OAuth2 Authentication (REQUIRED for live satellite data)
+requests-oauthlib>=1.3.1
+oauthlib>=3.2.2
+
+# Environment variable management (.env file support)
+python-dotenv>=1.0.0
+
+# Numerical & Geospatial Processing
+numpy>=1.24.0
+geopandas>=0.12.0
+shapely>=2.0.0
+rasterio>=1.3.0
