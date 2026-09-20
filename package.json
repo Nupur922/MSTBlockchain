@@ -1,0 +1,21 @@
+{
+  "name": "agritrust-ai-mst-blockchain",
+  "version": "1.0.0",
+  "description": "AgriTrust AI - Parametric Crop Insurance & Disaster Relief Escrow on MST Blockchain",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "deploy:local": "npx hardhat run scripts/deploy_agritrust.js --network localhost",
+    "deploy:mst": "npx hardhat run scripts/deploy_agritrust.js --network mst_network",
+    "node": "npx hardhat node"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  },
+  "keywords": ["mst-blockchain", "agritrust", "parametric-insurance", "escrow", "ai-oracle"],
+  "license": "MIT"
+}
