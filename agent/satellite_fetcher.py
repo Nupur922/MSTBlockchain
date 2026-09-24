@@ -580,6 +580,189 @@ class Sentinel1SARClient:
 
 
 # ---------------------------------------------------------------------------
+# Sentinel-2 SWIR Band Data (for NDWI drought sensing)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Sentinel2SWIRData:
+    """Green (B03) and SWIR (B11) band values for NDWI drought sensing."""
+    plot_id: str
+    timestamp: float
+    green_band3: float          # Green (B03) reflectance, 0.0–1.0
+    swir_band11: float          # SWIR (B11) reflectance, 0.0–1.0
+    ndwi: float                 # Pre-computed NDWI = (GREEN-SWIR)/(GREEN+SWIR)
+    data_source: str            # "live" | "simulated"
+    acquisition_date: str
+    raw_response: dict[str, Any] = field(default_factory=dict)
+
+
+# Evalscript: Sentinel-2 B03 Green + B11 SWIR for NDWI drought index
+EVALSCRIPT_S2_SWIR = """
+//VERSION=3
+function setup() {
+  return {
+    input: [{
+      bands: ["B03", "B11", "SCL", "dataMask"]
+    }],
+    output: [
+      { id: "green",   bands: 1, sampleType: "FLOAT32" },
+      { id: "swir",    bands: 1, sampleType: "FLOAT32" },
+      { id: "ndwi",    bands: 1, sampleType: "FLOAT32" },
+      { id: "dataMask",bands: 1 }
+    ]
+  }
+}
+
+function evaluatePixel(s) {
+  // NDWI = (GREEN - SWIR) / (GREEN + SWIR)
+  // Negative NDWI = dry/stressed vegetation, more negative = severe drought
+  let ndwi = (s.B03 + s.B11 === 0) ? 0.0 : (s.B03 - s.B11) / (s.B03 + s.B11);
+
+  // Exclude clouds and water pixels
+  let cloudFree = (s.SCL !== 3 && s.SCL !== 8 && s.SCL !== 9 && s.SCL !== 10) ? 1 : 0;
+
+  return {
+    green:    [s.B03],
+    swir:     [s.B11],
+    ndwi:     [ndwi],
+    dataMask: [s.dataMask * cloudFree]
+  };
+}
+"""
+
+
+class Sentinel2SWIRClient:
+    """
+    Fetches Sentinel-2 Green (B03) and SWIR (B11) bands for NDWI drought sensing.
+
+    NDWI (Normalized Difference Water Index) formula:
+        NDWI = (GREEN - SWIR) / (GREEN + SWIR)
+
+    Interpretation:
+        NDWI >  0.1  → Moist / well-irrigated soil
+        NDWI  0 to 0.1 → Normal
+        NDWI -0.1 to -0.35 → Soil moisture stress
+        NDWI < -0.35 → FLASH DROUGHT / severe desiccation
+    """
+
+    TIMEOUT = 30
+
+    def __init__(self, session: CopernicusSession):
+        self._session = session
+
+    def _make_date_range(self, days_back: int = 30) -> tuple[str, str]:
+        to_dt   = datetime.datetime.utcnow()
+        from_dt = to_dt - datetime.timedelta(days=days_back)
+        return from_dt.strftime("%Y-%m-%dT00:00:00Z"), to_dt.strftime("%Y-%m-%dT23:59:59Z")
+
+    def fetch(
+        self,
+        geojson_polygon: dict,
+        plot_id: str = "PLOT_001",
+        days_back: int = 30,
+    ) -> Sentinel2SWIRData:
+        """Fetch real Sentinel-2 Green (B03) and SWIR (B11) band stats for NDWI."""
+        if not self._session.is_configured:
+            return self._simulate(plot_id)
+
+        from_date, to_date = self._make_date_range(days_back)
+        logger.info("🌵  Sentinel-2 SWIR: Fetching NDWI drought index for plot %s …", plot_id)
+
+        payload = {
+            "input": {
+                "bounds": {
+                    "geometry": (
+                        geojson_polygon.get("geometry", geojson_polygon)
+                        if geojson_polygon.get("type") == "Feature"
+                        else geojson_polygon
+                    ),
+                },
+                "data": [{"type": "sentinel-2-l2a", "dataFilter": {"mosaickingOrder": "leastCC"}}],
+            },
+            "aggregation": {
+                "timeRange": {"from": from_date, "to": to_date},
+                "aggregationInterval": {"of": "P10D"},
+                "evalscript": EVALSCRIPT_S2_SWIR,
+                "resx": 20,  # B11 is 20m resolution
+                "resy": 20,
+            },
+        }
+
+        try:
+            resp = self._session.post(
+                STATISTICS_URL,
+                json=payload,
+                headers={"Content-Type": "application/json", "Accept": "application/json"},
+                timeout=self.TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            acquisitions = [
+                acq for acq in data.get("data", [])
+                if acq.get("outputs", {}).get("ndwi", {}).get("bands", {}).get("B0", {}).get("stats", {}).get("sampleCount", 0) > 0
+            ]
+            if not acquisitions:
+                raise ValueError("No valid SWIR acquisitions in date range.")
+
+            latest   = acquisitions[-1]
+            acq_date = latest.get("interval", {}).get("from", "N/A")[:10]
+
+            def _mean(output_id: str) -> float:
+                return (
+                    latest.get("outputs", {})
+                    .get(output_id, {})
+                    .get("bands", {})
+                    .get("B0", {})
+                    .get("stats", {})
+                    .get("mean", 0.0)
+                )
+
+            green_val = float(_mean("green"))
+            swir_val  = float(_mean("swir"))
+            ndwi_val  = float(_mean("ndwi"))
+
+            logger.info(
+                "✅  Sentinel-2 SWIR LIVE: GREEN=%.4f  SWIR=%.4f  NDWI=%.4f  Date=%s%s",
+                green_val, swir_val, ndwi_val, acq_date,
+                "  🌵 DROUGHT" if ndwi_val < -0.35 else "",
+            )
+            return Sentinel2SWIRData(
+                plot_id=plot_id,
+                timestamp=time.time(),
+                green_band3=green_val,
+                swir_band11=swir_val,
+                ndwi=ndwi_val,
+                data_source="live",
+                acquisition_date=acq_date,
+                raw_response=data,
+            )
+
+        except Exception as exc:
+            logger.warning("⚠️  Sentinel-2 SWIR API error (%s). Falling back to simulation.", exc)
+            return self._simulate(plot_id)
+
+    def _simulate(self, plot_id: str, scenario: str = "normal") -> Sentinel2SWIRData:
+        if scenario == "drought":
+            green = round(random.uniform(0.05, 0.10), 4)
+            swir  = round(random.uniform(0.28, 0.40), 4)
+        else:
+            green = round(random.uniform(0.08, 0.15), 4)
+            swir  = round(random.uniform(0.10, 0.20), 4)
+        ndwi = round((green - swir) / (green + swir), 4) if (green + swir) > 0 else 0.0
+        logger.info("🔬  Sentinel-2 SWIR SIM (%s): GREEN=%.4f SWIR=%.4f NDWI=%.4f", scenario, green, swir, ndwi)
+        return Sentinel2SWIRData(
+            plot_id=plot_id,
+            timestamp=time.time(),
+            green_band3=green,
+            swir_band11=swir,
+            ndwi=ndwi,
+            data_source="simulated",
+            acquisition_date=datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+        )
+
+
+# ---------------------------------------------------------------------------
 # High-level SatelliteFetcher facade
 # ---------------------------------------------------------------------------
 
@@ -605,9 +788,10 @@ class SatelliteFetcher:
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
     ):
-        self._session   = CopernicusSession(client_id=client_id, client_secret=client_secret)
-        self._s2_client = Sentinel2Client(self._session)
-        self._s1_client = Sentinel1SARClient(self._session)
+        self._session    = CopernicusSession(client_id=client_id, client_secret=client_secret)
+        self._s2_client  = Sentinel2Client(self._session)
+        self._s1_client  = Sentinel1SARClient(self._session)
+        self._swir_client = Sentinel2SWIRClient(self._session)
 
         mode = "🌍 LIVE (Copernicus API)" if self._session.is_configured else "🔬 SIMULATED (no credentials)"
         logger.info("🛰️  SatelliteFetcher initialized — Mode: %s", mode)
@@ -656,6 +840,26 @@ class SatelliteFetcher:
         optical  = self.fetch_sentinel2_optical(geojson_polygon, plot_id)
         sar_data = self.fetch_sentinel1_sar(geojson_polygon, plot_id, scenario=sar_scenario)
         return optical, sar_data
+
+    def fetch_sentinel2_swir(
+        self,
+        geojson_polygon: dict,
+        plot_id: str = "PLOT_001",
+        days_back: int = 30,
+        scenario: str = "normal",
+    ) -> Sentinel2SWIRData:
+        """
+        Fetch Sentinel-2 Green (B03) and SWIR (B11) bands for NDWI drought sensing.
+
+        NDWI = (GREEN - SWIR) / (GREEN + SWIR)
+        Values below -0.35 indicate Flash Drought / severe soil desiccation.
+
+        scenario : used for simulation fallback ("normal" | "drought")
+        """
+        result = self._swir_client.fetch(geojson_polygon, plot_id, days_back)
+        if result.data_source == "simulated" and scenario == "drought":
+            result = self._swir_client._simulate(plot_id, scenario="drought")
+        return result
 
     @property
     def is_live(self) -> bool:

@@ -385,15 +385,66 @@ class SentinelAgent:
                 tx_hash = self._execute_payout(plot_id, payout_wei, proof.timestamp, proof.signature_hex)
 
                 payout_mst = payout_wei / 10**18
-                voice_msg = self._voice.generate_and_speak(
-                    farmer_name=farmer,
-                    location=location,
-                    flood_days=sar_result.flood_days,
-                    payout_inr=payout_mst,
-                    language="hindi",
-                    approved=True,
-                )
-                logger.info("🔊  Voice Alert: %s", voice_msg[:120] + "…")
+                farmer_phone = plot.get("phoneNumber", "+919999999999")
+
+                # ── V2: Generate PDF Audit Certificate ──────────────────
+                try:
+                    from pdf_generator import PDFCertificateGenerator
+                    pdf_gen  = PDFCertificateGenerator()
+                    cert_path = pdf_gen.generate_audit_certificate(
+                        plot_id=str(plot_id),
+                        farmer_name=farmer,
+                        location=location,
+                        disaster_type="Monsoon Flood",
+                        damage_pct=consensus.verified_damage_pct,
+                        payout_mst=payout_mst,
+                        payout_inr=payout_mst,
+                        proof_hash=proof.proof_hash,
+                        tx_hash=tx_hash or "DEMO_TX_PENDING",
+                        ndvi_pre=0.75,
+                        ndvi_post=ndvi_result.ndvi,
+                        sar_mean_db=sar_data.mean_backscatter_db,
+                        sar_flood_days=sar_result.flood_days,
+                        rainfall_mm=rainfall_mm,
+                        consensus_score=consensus.consensus_score,
+                        votes_for=consensus.votes_for,
+                        ndvi_series=sar_data.backscatter_db_series[:6],
+                        sar_series=sar_data.backscatter_db_series[:6],
+                        crop_type=crop_type,
+                        farmer_phone=farmer_phone,
+                    )
+                    logger.info("📜  \033[92mAudit Certificate generated: %s\033[0m", cert_path)
+                except Exception as pdf_exc:
+                    logger.warning("⚠️  PDF generation failed: %s", pdf_exc)
+                    cert_path = None
+
+                # ── V2: Trigger Live Twilio Voice Call ───────────────────
+                try:
+                    call_sid = self._voice.trigger_live_voice_call(
+                        to_phone_number=farmer_phone,
+                        farmer_name=farmer,
+                        payout_inr=payout_mst,
+                        damage_pct=consensus.verified_damage_pct,
+                        disaster_type="Flood",
+                        language="hindi",
+                    )
+                    logger.info("📞  \033[92mTwilio Call SID: %s\033[0m", call_sid)
+                except Exception as call_exc:
+                    logger.warning("⚠️  Twilio call failed: %s", call_exc)
+
+                # ── V2: NDWI Drought check ────────────────────────────────
+                try:
+                    swir_data = self._fetcher.fetch_sentinel2_swir(geojson, plot_id=str(plot_id))
+                    from ndvi_calculator import NDVICalculator as _Calc
+                    _calc = _Calc()
+                    ndwi_val = _calc.calculate_ndwi(swir_data.green_band3, swir_data.swir_band11)
+                    logger.info(
+                        "🌵  NDWI Drought Index: %.4f%s",
+                        ndwi_val,
+                        "  ⚠️  DROUGHT ALERT" if ndwi_val < -0.35 else "  (Normal)",
+                    )
+                except Exception as ndwi_exc:
+                    logger.debug("NDWI check skipped: %s", ndwi_exc)
 
             return PlotMonitorResult(
                 plot_id=plot_id,

@@ -311,6 +311,142 @@ class NDVICalculator:
             payout_eligible=payout_eligible,
         )
 
+    # ------------------------------------------------------------------
+    # NDWI — Drought & Heatwave Sensing (V2)
+    # ------------------------------------------------------------------
+
+    def calculate_ndwi(
+        self,
+        green_band: float | np.ndarray,
+        swir_band: float | np.ndarray,
+    ) -> float | np.ndarray:
+        """
+        Compute NDWI (Normalized Difference Water Index) for drought sensing.
+
+        Formula:
+            NDWI = (GREEN - SWIR) / (GREEN + SWIR)
+
+        Uses Sentinel-2 Band 3 (Green) and Band 11 (SWIR).
+
+        Interpretation:
+            >  0.1   → Moist / well-irrigated soil
+             0 to 0.1 → Normal moisture
+            -0.1 to -0.35 → Soil moisture stress / mild drought
+            < -0.35  → FLASH DROUGHT / severe desiccation — payout eligible
+
+        Parameters
+        ----------
+        green_band : float or ndarray  — B03 Green reflectance (0–1)
+        swir_band  : float or ndarray  — B11 SWIR reflectance (0–1)
+
+        Returns
+        -------
+        float (scalar) or ndarray (array input), clipped to [-1, 1]
+        """
+        g = np.asarray(green_band, dtype=np.float64)
+        s = np.asarray(swir_band,  dtype=np.float64)
+
+        denom = g + s
+        ndwi  = np.where(denom == 0.0, 0.0, (g - s) / denom)
+        ndwi  = np.clip(ndwi, -1.0, 1.0)
+
+        if ndwi.ndim == 0 or ndwi.size == 1:
+            val = float(ndwi)
+            severity = (
+                "FLASH_DROUGHT" if val < -0.35
+                else "MILD_DROUGHT" if val < -0.10
+                else "NORMAL"
+            )
+            logger.info(
+                "🌵  NDWI: GREEN=%.4f  SWIR=%.4f  →  NDWI=%.4f  [%s]",
+                float(green_band), float(swir_band), val, severity,
+            )
+            return val
+        return ndwi
+
+    def evaluate_drought_severity(
+        self,
+        ndwi_series: list[float],
+        dry_days_threshold: int = 14,
+        acquisition_interval_days: int = 10,
+        drought_threshold: float = -0.35,
+    ) -> dict:
+        """
+        Evaluate drought severity from an NDWI time series.
+
+        Classifies as FLASH DROUGHT / SOIL DESICCATION if NDWI stays
+        below *drought_threshold* for *dry_days_threshold* consecutive days.
+
+        Parameters
+        ----------
+        ndwi_series : list[float]
+            Ordered NDWI values from consecutive Sentinel-2 acquisitions.
+        dry_days_threshold : int
+            Minimum consecutive dry days to declare flash drought (default 14).
+        acquisition_interval_days : int
+            Days between each acquisition (default 10 for Sentinel-2 10-day).
+        drought_threshold : float
+            NDWI below this = dry pixel (default -0.35).
+
+        Returns
+        -------
+        dict with keys:
+            dry_days, max_consecutive_dry, is_drought_event,
+            severity, payout_eligible, drought_fraction
+        """
+        if not ndwi_series:
+            raise ValueError("ndwi_series must not be empty.")
+
+        series = np.array(ndwi_series, dtype=np.float64)
+        dry_mask = series < drought_threshold
+
+        dry_acquisitions = int(np.sum(dry_mask))
+        total            = len(series)
+        drought_fraction = round(dry_acquisitions / total, 4)
+
+        # Max consecutive dry acquisitions
+        max_consec = 0
+        current    = 0
+        for flag in dry_mask:
+            if flag:
+                current   += 1
+                max_consec = max(max_consec, current)
+            else:
+                current = 0
+
+        dry_days = max_consec * acquisition_interval_days
+
+        if dry_days == 0:
+            severity = "NONE"
+        elif dry_days < dry_days_threshold:
+            severity = "MILD_STRESS"
+        elif dry_days < 30:
+            severity = "MODERATE_DROUGHT"
+        else:
+            severity = "FLASH_DROUGHT"
+
+        is_drought_event = dry_days >= dry_days_threshold
+        payout_eligible  = is_drought_event
+
+        logger.info(
+            "🌵  Drought Analysis: %d/%d acquisitions dry | "
+            "Max consecutive dry days: %d | Severity: %s | Payout: %s",
+            dry_acquisitions, total, dry_days, severity,
+            "✅ ELIGIBLE" if payout_eligible else "❌ NOT ELIGIBLE",
+        )
+
+        return {
+            "dry_days":              dry_days,
+            "max_consecutive_dry":   max_consec,
+            "dry_acquisitions":      dry_acquisitions,
+            "total_acquisitions":    total,
+            "drought_fraction":      drought_fraction,
+            "is_drought_event":      is_drought_event,
+            "severity":              severity,
+            "payout_eligible":       payout_eligible,
+            "drought_threshold":     drought_threshold,
+        }
+
     def full_damage_report(
         self,
         nir: float,
@@ -368,5 +504,19 @@ if __name__ == "__main__":
     loss = calc.evaluate_crop_loss(pre_ndvi=0.75, post_ndvi=0.18)
     print(f"  NDVI Drop   : {loss.ndvi_drop:.4f}")
     print(f"  Damage %    : {loss.damage_pct:.1f}%")
+    print(f"  Severity    : {loss.loss_severity}")
+    print(f"  Eligible    : {loss.payout_eligible}")
+
+    print("\n=== NDWI Drought Index (V2) ===")
+    ndwi_val = calc.calculate_ndwi(green_band=0.06, swir_band=0.35)
+    print(f"  NDWI        : {ndwi_val:.4f}")
+
+    print("\n=== Drought Severity (V2) ===")
+    # Simulate 21 days of flash drought (NDWI < -0.35 for 2+ acquisitions)
+    drought_series = [-0.10, -0.18, -0.38, -0.42, -0.45, -0.39, -0.22, -0.15]
+    drought = calc.evaluate_drought_severity(drought_series, dry_days_threshold=14)
+    print(f"  Dry Days    : {drought['dry_days']}")
+    print(f"  Severity    : {drought['severity']}")
+    print(f"  Payout      : {drought['payout_eligible']}")
     print(f"  Severity    : {loss.loss_severity}")
     print(f"  Eligible    : {loss.payout_eligible}")

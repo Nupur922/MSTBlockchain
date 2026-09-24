@@ -21,3 +21,13 @@ numpy>=1.24.0
 geopandas>=0.12.0
 shapely>=2.0.0
 rasterio>=1.3.0
+
+# ── V2 FEATURES ──────────────────────────────────────────────
+# Twilio Live Voice Calls
+twilio>=8.0.0
+
+# PDF Audit Certificate Generator
+reportlab>=4.0.0
+
+# NDVI/NDWI Graphs in PDF
+matplotlib>=3.7.0

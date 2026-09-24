@@ -76,10 +76,10 @@ class TestRunner:
             tb = traceback.format_exc().strip().split("\n")[-1]
             result = TestResult(name=name, passed=False, message=f"ERROR: {tb}", duration_ms=duration)
         self.results.append(result)
-        status = "✅ PASS" if result.passed else "❌ FAIL"
+        status = "[PASS]" if result.passed else "[FAIL]"
         print(f"  {status}  [{duration:.1f}ms]  {name}")
         if not result.passed:
-            print(f"         └─ {result.message}")
+            print(f"         +-- {result.message}")
         return result
 
     def summary(self) -> bool:
@@ -90,18 +90,18 @@ class TestRunner:
         total_ms = sum(r.duration_ms for r in self.results)
 
         print()
-        print("═" * 65)
+        print("=================================================================")
         print(f"  TEST SUMMARY: {passed}/{total} passed | {failed} failed | {total_ms:.0f}ms")
-        print("═" * 65)
+        print("=================================================================")
 
         if failed > 0:
             print("\n  FAILED TESTS:")
             for r in self.results:
                 if not r.passed:
-                    print(f"  ❌  {r.name}")
-                    print(f"      └─ {r.message}")
+                    print(f"  [FAIL]  {r.name}")
+                    print(f"          +-- {r.message}")
         else:
-            print("\n  🎉 ALL TESTS PASSED — Developer 2 pipeline is 100% verified!")
+            print("\n  ALL TESTS PASSED -- Developer 2 pipeline is 100% verified!")
 
         return failed == 0
 
@@ -373,7 +373,7 @@ def t12_keccak256_determinism():
 def t13_satellite_fetcher_offline():
     from satellite_fetcher import SatelliteFetcher, Sentinel2BandData, Sentinel1SARData
 
-    fetcher = SatelliteFetcher(api_timeout=1)  # Very short timeout forces fallback
+    fetcher = SatelliteFetcher()
 
     geojson = {
         "type": "Polygon",
@@ -587,10 +587,10 @@ def t20_consensus_damage_pct_range():
 
 def main():
     print()
-    print("╔══════════════════════════════════════════════════════════════╗")
-    print("║      AgriTrust AI — Developer 2 Automated Test Suite        ║")
-    print("║      NEWRRO AI & Satellite Oracle Engine                     ║")
-    print("╚══════════════════════════════════════════════════════════════╝")
+    print("================================================================")
+    print("      AgriTrust AI -- Developer 2 Automated Test Suite        ")
+    print("      NEWRRO AI & Satellite Oracle Engine                     ")
+    print("================================================================")
     print()
 
     tests = [
