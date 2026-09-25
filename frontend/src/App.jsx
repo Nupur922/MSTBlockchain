@@ -170,6 +170,15 @@ function App() {
     //  fires from triggerDisasterPayout() in sentinel_agent.py instead)
     setShowVoice(true);
     setShowAePS(true);
+
+    // Also trigger the real Twilio live phone call via the local agent bridge (if running)
+    try {
+      fetch('http://127.0.0.1:8000/api/trigger-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenario: scenarioId }),
+      }).catch(() => {});
+    } catch (_) {}
   }, []);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
