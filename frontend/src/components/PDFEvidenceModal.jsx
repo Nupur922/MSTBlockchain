@@ -23,6 +23,132 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
   const txHash = payoutEvent?.txHash || '0x8f3a91bc24ef10c79184aa2758129e8dcD48A6461082f';
   const timestamp = new Date().toUTCString();
 
+  // Generate high-resolution dual-panel satellite telemetry graph in memory
+  const generateChartCanvasUrl = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 720;
+      canvas.height = 160;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 720, 160);
+
+      // ── Left panel: NDVI Time Series ──
+      ctx.fillStyle = '#f0fdf4';
+      ctx.strokeStyle = '#bbf7d0';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(10, 8, 340, 144);
+      ctx.strokeRect(10, 8, 340, 144);
+
+      ctx.fillStyle = '#166534';
+      ctx.font = 'bold 11.5px Helvetica, Arial, sans-serif';
+      ctx.fillText('SENTINEL-2 OPTICAL (NDVI HEALTH)', 20, 25);
+      ctx.fillStyle = '#15803d';
+      ctx.font = '9px Helvetica, Arial, sans-serif';
+      ctx.fillText('Pre-event: 0.75  →  Disaster Drop: 0.18 (76.0% Loss)', 20, 38);
+
+      // Threshold line
+      ctx.strokeStyle = '#ef4444';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(25, 96);
+      ctx.lineTo(335, 96);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#b91c1c';
+      ctx.font = '8.5px Helvetica, Arial, sans-serif';
+      ctx.fillText('Loss Threshold (0.35)', 205, 92);
+
+      // NDVI Line
+      const ndviPoints = [
+        { x: 38,  y: 52, val: '0.78' },
+        { x: 94,  y: 56, val: '0.75' },
+        { x: 150, y: 62, val: '0.72' },
+        { x: 206, y: 94, val: '0.45' },
+        { x: 262, y: 118, val: '0.22' },
+        { x: 318, y: 125, val: '0.18' },
+      ];
+
+      ctx.strokeStyle = '#16a34a';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ndviPoints.forEach((pt, i) => {
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+
+      // Points & Labels
+      ndviPoints.forEach((pt, i) => {
+        ctx.fillStyle = i >= 3 ? '#dc2626' : '#16a34a';
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '8px Helvetica, Arial, sans-serif';
+        ctx.fillText(`T-${5 - i}`, pt.x - 7, 144);
+        ctx.fillStyle = '#0f172a';
+        ctx.fillText(pt.val, pt.x - 8, pt.y - 6);
+      });
+
+      // ── Right panel: SAR Radar Inundation ──
+      ctx.fillStyle = '#f8fafc';
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.2;
+      ctx.fillRect(370, 8, 340, 144);
+      ctx.strokeRect(370, 8, 340, 144);
+
+      ctx.fillStyle = '#1e3a8a';
+      ctx.font = 'bold 11.5px Helvetica, Arial, sans-serif';
+      ctx.fillText('SENTINEL-1 C-BAND SAR (FLOOD RADAR)', 380, 25);
+      ctx.fillStyle = '#2563eb';
+      ctx.font = '9.5px Helvetica, Arial, sans-serif';
+      ctx.fillText('Backscatter < -15 dB Confirms Standing Inundation', 380, 38);
+
+      // SAR Threshold line
+      ctx.strokeStyle = '#ef4444';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(385, 88);
+      ctx.lineTo(695, 88);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#b91c1c';
+      ctx.font = '8.5px Helvetica, Arial, sans-serif';
+      ctx.fillText('Flood Limit (-15 dB)', 590, 84);
+
+      // SAR Bars
+      const sarBars = [
+        { x: 405, h: 32, val: '-8.5dB', flood: false },
+        { x: 455, h: 34, val: '-9.1dB', flood: false },
+        { x: 505, h: 44, val: '-11.8dB', flood: false },
+        { x: 555, h: 70, val: '-18.2dB', flood: true },
+        { x: 605, h: 79, val: '-20.5dB', flood: true },
+        { x: 655, h: 86, val: '-22.4dB', flood: true },
+      ];
+
+      sarBars.forEach((bar, i) => {
+        ctx.fillStyle = bar.flood ? '#ef4444' : '#3b82f6';
+        ctx.fillRect(bar.x, 44, 26, bar.h);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '8px Helvetica, Arial, sans-serif';
+        ctx.fillText(`T-${5 - i}`, bar.x + 3, 144);
+        ctx.fillStyle = bar.flood ? '#991b1b' : '#1e40af';
+        ctx.font = 'bold 8px Helvetica, Arial, sans-serif';
+        ctx.fillText(bar.val, bar.x - 3, 40);
+      });
+
+      return canvas.toDataURL('image/png');
+    } catch (_) {
+      return null;
+    }
+  };
+
   // Generate client-side PDF using jsPDF
   const generateAndDownloadPDF = () => {
     setIsGenerating(true);
@@ -35,48 +161,47 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
 
       // Background Border & Frame
       doc.setDrawColor(22, 101, 52); // Forest green
-      doc.setLineWidth(1.5);
+      doc.setLineWidth(1.4);
       doc.rect(10, 10, 190, 277);
 
       doc.setDrawColor(187, 247, 208); // Light green inner frame
       doc.setLineWidth(0.5);
-      doc.rect(13, 13, 184, 271);
+      doc.rect(12.5, 12.5, 185, 272);
 
       // Header Banner
       doc.setFillColor(22, 101, 52);
-      doc.rect(14, 14, 182, 28, 'F');
+      doc.rect(13.5, 13.5, 183, 24, 'F');
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
+      doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
-      doc.text('AGRITRUST AI -- DISASTER AUDIT CERTIFICATE', 105, 24, { align: 'center' });
+      doc.text('AGRITRUST AI -- DISASTER AUDIT CERTIFICATE', 105, 22.5, { align: 'center' });
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('PARAMETRIC CROP RELIEF ESCROW & SATELLITE ORACLE VERIFICATION', 105, 30, { align: 'center' });
-      doc.text('MST Blockchain Layer 1 | NEWRRO AI Autonomous Remote Sensing', 105, 36, { align: 'center' });
+      doc.text('PARAMETRIC CROP RELIEF ESCROW & SATELLITE ORACLE VERIFICATION', 105, 28, { align: 'center' });
+      doc.text('MST Blockchain Layer 1 | NEWRRO AI Autonomous Remote Sensing', 105, 33, { align: 'center' });
 
-      // Certificate Meta
-      doc.setTextColor(40, 40, 40);
-      doc.setFontSize(9);
-      doc.text(`Certificate No: CERT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`, 16, 49);
-      doc.text(`Issue Timestamp: ${timestamp}`, 190, 49, { align: 'right' });
-      doc.text(`Chain Status: MST Mainnet Verified (Chain ID: 31337)`, 16, 54);
-      doc.text(`Smart Contract: AgriTrustVault.sol`, 190, 54, { align: 'right' });
+      // Certificate Meta Strip
+      doc.setTextColor(55, 65, 81);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Certificate No: CERT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`, 15, 42.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Issue Timestamp: ${timestamp}`, 195, 42.5, { align: 'right' });
+      doc.text(`Chain Status: MST Mainnet Verified (Chain ID: 31337)`, 15, 47);
+      doc.text(`Smart Contract: AgriTrustVault.sol`, 195, 47, { align: 'right' });
 
       // Divider line
-      doc.setDrawColor(200, 200, 200);
-      doc.line(16, 58, 194, 58);
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.4);
+      doc.line(14, 50, 196, 50);
 
-      // Section 1: Farmer & Land Registry Record
+      // ── Section 1: Farmer & Land Registry Record ──
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
+      doc.setFontSize(8.5);
       doc.setTextColor(22, 101, 52);
-      doc.text('1. FARMER & GOVERNMENT LAND RECORD IDENTIFICATION', 16, 66);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(50, 50, 50);
+      doc.text('1. FARMER & GOVERNMENT LAND RECORD IDENTIFICATION', 15, 55.5);
 
       const farmerDetails = [
         ['Farmer Name', farmerName],
@@ -87,27 +212,33 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
         ['Beneficiary Wallet', payoutEvent?.farmer || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'],
       ];
 
-      let yPos = 73;
+      let yPos = 60.5;
       farmerDetails.forEach(([label, value]) => {
         doc.setFont('helvetica', 'bold');
-        doc.text(`${label}:`, 18, yPos);
+        doc.setFontSize(7.5);
+        doc.setTextColor(55, 65, 81);
+        doc.text(`${label}:`, 16, yPos);
+
         doc.setFont('helvetica', 'normal');
-        doc.text(String(value), 72, yPos);
-        yPos += 6;
+        doc.setTextColor(17, 24, 39);
+        doc.text(String(value), 64, yPos, { maxWidth: 128 });
+        yPos += 4.5;
       });
 
-      // Section 2: NEWRRO Multi-Modal Satellite Telemetry
-      doc.line(16, yPos + 2, 194, yPos + 2);
-      yPos += 9;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(22, 101, 52);
-      doc.text('2. MULTI-MODAL SATELLITE SENSING & TELEMETRY BREAKDOWN', 16, yPos);
-
+      // Divider line
+      doc.setDrawColor(229, 231, 235);
+      doc.line(14, yPos + 1.5, 196, yPos + 1.5);
       yPos += 7;
+
+      // ── Section 2: NEWRRO Multi-Modal Satellite Telemetry ──
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(22, 101, 52);
+      doc.text('2. MULTI-MODAL SATELLITE SENSING & TELEMETRY BREAKDOWN', 15, yPos);
+
+      yPos += 5;
       const telemetryDetails = [
-        ['Sentinel-2 Optical (NDVI)', 'Baseline: 0.75 -> Post-Disaster: 0.18 (76.0% Vegetative Loss)'],
+        ['Sentinel-2 Optical (NDVI)', 'Baseline: 0.75  →  Post-Disaster: 0.18 (76.0% Vegetative Loss)'],
         ['Sentinel-1 C-Band SAR', 'Backscatter: -22.4 dB (Inundation Confirmed for 6 Consecutive Days)'],
         ['Sentinel-2 SWIR (NDWI)', 'Moisture Index: -0.380 (Critical Water/Soil Level Evaluated)'],
         ['IMD Dual-Pol Doppler Radar', 'Cumulative 48-Hour Precipitation: 248.5 mm (Threshold 120 mm)'],
@@ -116,60 +247,99 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
 
       telemetryDetails.forEach(([sensor, result]) => {
         doc.setFont('helvetica', 'bold');
-        doc.text(`${sensor}:`, 18, yPos);
+        doc.setFontSize(7.5);
+        doc.setTextColor(55, 65, 81);
+        doc.text(`${sensor}:`, 16, yPos);
+
         doc.setFont('helvetica', 'normal');
-        doc.text(String(result), 80, yPos);
-        yPos += 6.5;
+        doc.setTextColor(17, 24, 39);
+        doc.text(String(result), 64, yPos, { maxWidth: 128 });
+        yPos += 4.5;
       });
 
-      // Section 3: Parametric Payout & Cryptographic Proof
-      doc.line(16, yPos + 2, 194, yPos + 2);
-      yPos += 9;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(22, 101, 52);
-      doc.text('3. ESCROW PAYOUT & CRYPTOGRAPHIC PROOF OF DISASTER', 16, yPos);
-
+      // Divider line
+      doc.setDrawColor(229, 231, 235);
+      doc.line(14, yPos + 1.5, 196, yPos + 1.5);
       yPos += 7;
+
+      // ── Section 3: Satellite Telemetry Time-Series Graph ──
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(22, 101, 52);
+      doc.text('3. SATELLITE TELEMETRY TIME-SERIES VISUAL EVIDENCE', 15, yPos);
+
+      yPos += 2.5;
+      const chartImg = generateChartCanvasUrl();
+      if (chartImg) {
+        doc.addImage(chartImg, 'PNG', 14, yPos, 182, 38);
+        yPos += 40;
+      }
+
+      // Divider line
+      doc.setDrawColor(229, 231, 235);
+      doc.line(14, yPos + 1.5, 196, yPos + 1.5);
+      yPos += 7;
+
+      // ── Section 4: Parametric Payout & Cryptographic Proof ──
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(22, 101, 52);
+      doc.text('4. ESCROW PAYOUT & CRYPTOGRAPHIC PROOF OF DISASTER', 15, yPos);
+
+      yPos += 5;
       const payoutDetails = [
         ['Disaster Classification', `${disasterType} (Verified by Sentinel Consensus)`],
         ['Verified Damage Severity', `${damagePct.toFixed(1)}% of registered crop area`],
         ['Calculated Relief Payout', `${payoutAmount} MST (Equivalent: Rs ${payoutINR})`],
-        ['EIP-191 Disaster Proof Hash', proofHash.substring(0, 48) + '...'],
-        ['MST Blockchain Tx Hash', txHash.substring(0, 48) + '...'],
+        ['EIP-191 Disaster Proof Hash', proofHash],
+        ['MST Blockchain Tx Hash', txHash],
         ['Voice Call Alert Status', 'Twilio Live Call Dispatched in Regional Dialect (Polly.Aditi)'],
       ];
 
       payoutDetails.forEach(([field, val]) => {
         doc.setFont('helvetica', 'bold');
-        doc.text(`${field}:`, 18, yPos);
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(val), 80, yPos);
-        yPos += 6.5;
+        doc.setFontSize(7.5);
+        doc.setTextColor(55, 65, 81);
+        doc.text(`${field}:`, 16, yPos);
+
+        const isHash = field.includes('Hash');
+        doc.setFont(isHash ? 'courier' : 'helvetica', 'normal');
+        doc.setFontSize(isHash ? 6.5 : 7.5);
+        doc.setTextColor(17, 24, 39);
+        doc.text(String(val), 64, yPos, { maxWidth: 128 });
+        yPos += 4.5;
       });
 
-      // Verification Box & Stamp
-      yPos += 5;
+      // ── Section 5: Verification Stamp Box ──
+      yPos += 2;
       doc.setFillColor(240, 253, 244);
       doc.setDrawColor(34, 197, 94);
-      doc.rect(16, yPos, 178, 26, 'FD');
+      doc.setLineWidth(0.6);
+      doc.rect(14, yPos, 182, 22, 'FD');
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
+      doc.setFontSize(9);
       doc.setTextColor(21, 128, 61);
-      doc.text('VERIFIED BY NEWRRO AI SENTINEL ORACLE & MST SMART CONTRACT', 105, yPos + 8, { align: 'center' });
+      doc.text('VERIFIED BY NEWRRO AI SENTINEL ORACLE & MST SMART CONTRACT', 105, yPos + 7, { align: 'center' });
 
-      doc.setFontSize(8.5);
+      doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(70, 70, 70);
+      doc.setTextColor(75, 85, 99);
       doc.text(
         'This tamper-proof certificate serves as official legal evidence of satellite-verified crop loss and on-chain payout.',
-        105, yPos + 14, { align: 'center' }
+        105, yPos + 12.5, { align: 'center' }
       );
       doc.text(
         'All cryptographic signatures are validated on-chain against AgriTrustVault.sol on MST Layer 1.',
-        105, yPos + 20, { align: 'center' }
+        105, yPos + 17, { align: 'center' }
+      );
+
+      // Footer notice
+      doc.setFontSize(6.5);
+      doc.setTextColor(156, 163, 175);
+      doc.text(
+        'AgriTrust AI — Autonomous Parametric Crop Insurance & Disaster Relief Escrow | MST Blockchain Layer 1',
+        105, 282, { align: 'center' }
       );
 
       // Save PDF to browser

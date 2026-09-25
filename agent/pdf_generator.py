@@ -253,12 +253,12 @@ class PDFCertificateGenerator:
         dark_gray   = colors.Color(*self.COLOR_DARK_GRAY)
         white       = colors.white
 
-        # Document setup
+        # Document setup - exact 1-page budget
         doc = SimpleDocTemplate(
             str(output_path),
             pagesize=A4,
-            rightMargin=15*mm, leftMargin=15*mm,
-            topMargin=12*mm, bottomMargin=12*mm,
+            rightMargin=12*mm, leftMargin=12*mm,
+            topMargin=8*mm, bottomMargin=8*mm,
         )
 
         W, H = A4
@@ -268,13 +268,13 @@ class PDFCertificateGenerator:
         def style(name, **kwargs):
             return ParagraphStyle(name, parent=styles["Normal"], **kwargs)
 
-        title_style    = style("Title",    fontSize=15, textColor=white,       alignment=TA_CENTER, fontName="Helvetica-Bold", leading=20)
-        sub_style      = style("Sub",      fontSize=8,  textColor=white,       alignment=TA_CENTER, fontName="Helvetica")
-        section_style  = style("Section",  fontSize=9,  textColor=dark_green,  fontName="Helvetica-Bold")
-        body_style     = style("Body",     fontSize=8,  textColor=dark_gray,   fontName="Helvetica")
-        mono_style     = style("Mono",     fontSize=6.5,textColor=dark_gray,   fontName="Courier", wordWrap="CJK")
-        stamp_style    = style("Stamp",    fontSize=11, textColor=gold,        alignment=TA_CENTER, fontName="Helvetica-Bold")
-        cert_id_style  = style("CertID",   fontSize=7,  textColor=white,       alignment=TA_RIGHT, fontName="Courier")
+        title_style    = style("Title",    fontSize=13, textColor=white,       alignment=TA_CENTER, fontName="Helvetica-Bold", leading=16)
+        sub_style      = style("Sub",      fontSize=7.5,textColor=white,       alignment=TA_CENTER, fontName="Helvetica", leading=10)
+        section_style  = style("Section",  fontSize=8.5,textColor=dark_green,  fontName="Helvetica-Bold", leading=10)
+        body_style     = style("Body",     fontSize=7.5,textColor=dark_gray,   fontName="Helvetica", leading=9.5)
+        mono_style     = style("Mono",     fontSize=6.5,textColor=dark_gray,   fontName="Courier", wordWrap="CJK", leading=8)
+        stamp_style    = style("Stamp",    fontSize=9,  textColor=gold,        alignment=TA_CENTER, fontName="Helvetica-Bold", leading=12)
+        cert_id_style  = style("CertID",   fontSize=6.5,textColor=white,       alignment=TA_RIGHT, fontName="Courier", leading=8)
 
         story = []
 
@@ -289,61 +289,61 @@ class PDFCertificateGenerator:
             Paragraph(f"CERT ID: {cert.certificate_id}  |  {cert.generated_at}", cert_id_style),
         ]]
 
-        header_table = Table(header_data, colWidths=[W - 30*mm])
+        header_table = Table(header_data, colWidths=[W - 24*mm])
         header_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), dark_green),
-            ("TOPPADDING",    (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 10),
+            ("TOPPADDING",    (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
         ]))
 
-        sub_table = Table(header_sub, colWidths=[W - 30*mm])
+        sub_table = Table(header_sub, colWidths=[W - 24*mm])
         sub_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), dark_green),
-            ("TOPPADDING",    (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING",    (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ]))
 
-        cert_id_table = Table(cert_id_row, colWidths=[W - 30*mm])
+        cert_id_table = Table(cert_id_row, colWidths=[W - 24*mm])
         cert_id_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), dark_green),
-            ("TOPPADDING",    (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 10),
+            ("TOPPADDING",    (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
         ]))
 
-        story += [header_table, sub_table, cert_id_table, Spacer(1, 4*mm)]
+        story += [header_table, sub_table, cert_id_table, Spacer(1, 2*mm)]
 
         # ── FARM & DISASTER DETAILS ─────────────────────────────────────
         def section_header(text):
-            t = Table([[Paragraph(f"▶  {text}", section_style)]], colWidths=[W - 30*mm])
+            t = Table([[Paragraph(f"▶  {text}", section_style)]], colWidths=[W - 24*mm])
             t.setStyle(TableStyle([
                 ("BACKGROUND", (0, 0), (-1, -1), light_green),
-                ("TOPPADDING",    (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 8),
+                ("TOPPADDING",    (0, 0), (-1, -1), 2.5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 6),
                 ("LINEBELOW", (0, 0), (-1, -1), 1, dark_green),
             ]))
             return t
 
         def info_table(rows, col_widths=None):
             """2-column key-value info table."""
-            cw = col_widths or [(W - 30*mm) * 0.35, (W - 30*mm) * 0.65]
+            cw = col_widths or [(W - 24*mm) * 0.35, (W - 24*mm) * 0.65]
             t  = Table(rows, colWidths=cw)
             t.setStyle(TableStyle([
                 ("FONTNAME",  (0, 0), (0, -1), "Helvetica-Bold"),
                 ("FONTNAME",  (1, 0), (1, -1), "Helvetica"),
-                ("FONTSIZE",  (0, 0), (-1, -1), 8),
+                ("FONTSIZE",  (0, 0), (-1, -1), 7.5),
                 ("TEXTCOLOR", (0, 0), (-1, -1), dark_gray),
-                ("TOPPADDING",    (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+                ("TOPPADDING",    (0, 0), (-1, -1), 1.2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 5),
                 ("ROWBACKGROUNDS", (0, 0), (-1, -1), [white, colors.Color(0.97, 0.99, 0.97)]),
             ]))
             return t
 
         story.append(section_header("1. FARM PLOT & DISASTER IDENTIFICATION"))
-        story.append(Spacer(1, 1*mm))
+        story.append(Spacer(1, 0.8*mm))
         story.append(info_table([
             ["Plot ID:",         cert.plot_id],
             ["Farmer Name:",     cert.farmer_name],
@@ -354,11 +354,11 @@ class PDFCertificateGenerator:
             ["Assessment Date:", cert.generated_at],
         ]))
 
-        story.append(Spacer(1, 3*mm))
+        story.append(Spacer(1, 1.8*mm))
 
         # ── SATELLITE TELEMETRY ─────────────────────────────────────────
         story.append(section_header("2. SATELLITE TELEMETRY METRICS"))
-        story.append(Spacer(1, 1*mm))
+        story.append(Spacer(1, 0.8*mm))
 
         ndvi_loss = round((cert.ndvi_pre - cert.ndvi_post) / cert.ndvi_pre * 100, 1) if cert.ndvi_pre > 0 else 0.0
         story.append(info_table([
@@ -371,11 +371,11 @@ class PDFCertificateGenerator:
             ["IMD/OWM Rainfall (48h):",       f"{cert.rainfall_mm:.1f} mm"],
         ]))
 
-        story.append(Spacer(1, 3*mm))
+        story.append(Spacer(1, 1.8*mm))
 
         # ── CONSENSUS RESULT ────────────────────────────────────────────
         story.append(section_header("3. NEWRRO AI 2-OF-3 MULTI-SOURCE CONSENSUS RESULT"))
-        story.append(Spacer(1, 1*mm))
+        story.append(Spacer(1, 0.8*mm))
 
         verdict_text = f"✅ APPROVED — {cert.votes_for}/3 feeds confirmed disaster event"
         story.append(info_table([
@@ -385,59 +385,48 @@ class PDFCertificateGenerator:
             ["Payout Authorized:",     f"{cert.payout_mst:,.2f} MST  (≈ ₹{cert.payout_inr:,.0f})"],
         ]))
 
-        story.append(Spacer(1, 3*mm))
+        story.append(Spacer(1, 1.8*mm))
 
         # ── GRAPH ──────────────────────────────────────────────────────
         graph_bytes = self._generate_telemetry_graph(cert.ndvi_series, cert.sar_series, cert.disaster_type)
         if graph_bytes:
             story.append(section_header("4. SATELLITE TELEMETRY TIME-SERIES GRAPH"))
-            story.append(Spacer(1, 1*mm))
+            story.append(Spacer(1, 0.8*mm))
             img_buf = io.BytesIO(graph_bytes)
-            graph_img = RLImage(img_buf, width=W - 36*mm, height=55*mm)
+            graph_img = RLImage(img_buf, width=W - 24*mm, height=34*mm)
             story.append(graph_img)
-            story.append(Spacer(1, 3*mm))
+            story.append(Spacer(1, 1.8*mm))
 
         # ── CRYPTOGRAPHIC PROOF ─────────────────────────────────────────
         story.append(section_header("5. CRYPTOGRAPHIC BLOCKCHAIN PROOF"))
-        story.append(Spacer(1, 1*mm))
+        story.append(Spacer(1, 0.8*mm))
         story.append(info_table([
-            ["EIP-191 AI Proof Hash:", ""],
-        ]))
-        story.append(Paragraph(f"<font name='Courier' size='7'>{cert.proof_hash}</font>", body_style))
-        story.append(Spacer(1, 1*mm))
-        story.append(info_table([
-            ["MST Blockchain TX Hash:", ""],
-        ]))
-        story.append(Paragraph(f"<font name='Courier' size='7'>{cert.tx_hash}</font>", body_style))
-        story.append(Spacer(1, 2*mm))
-        story.append(info_table([
-            ["Signing Standard:",   "EIP-191 Personal Sign (Ethereum)"],
-            ["Hash Algorithm:",     "keccak256(abi.encodePacked(plotId, amount, timestamp, chainId))"],
-            ["ECDSA Recovery:",     "OpenZeppelin ECDSA.recover() — verified on MST Blockchain"],
-            ["Replay Protection:",  "executedProofs[proofHash] mapping — single use only"],
-        ]))
+            ["EIP-191 AI Proof Hash:", Paragraph(f"<font name='Courier' size='6.5'>{cert.proof_hash}</font>", body_style)],
+            ["MST Blockchain TX Hash:", Paragraph(f"<font name='Courier' size='6.5'>{cert.tx_hash}</font>", body_style)],
+            ["Signing Standard:",       "EIP-191 Personal Sign (Ethereum keccak256)"],
+            ["ECDSA Recovery:",         "OpenZeppelin ECDSA.recover() verified on MST Layer 1"],
+        ], col_widths=[(W - 24*mm) * 0.35, (W - 24*mm) * 0.65]))
 
-        story.append(Spacer(1, 4*mm))
+        story.append(Spacer(1, 2*mm))
 
         # ── VERIFICATION STAMP ──────────────────────────────────────────
         stamp_data = [[Paragraph(
             "✅  VERIFIED &amp; DIGITALLY SIGNED BY NEWRRO AI ORACLE AGENT<br/>"
-            "This certificate is cryptographically anchored to MST Blockchain Layer 1.<br/>"
-            "Any tampering with satellite telemetry data will invalidate the EIP-191 proof hash.",
+            "Cryptographically anchored to MST Blockchain Layer 1. Tamper-evident EIP-191 proof.",
             stamp_style,
         )]]
-        stamp_table = Table(stamp_data, colWidths=[W - 30*mm])
+        stamp_table = Table(stamp_data, colWidths=[W - 24*mm])
         stamp_table.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, -1), colors.Color(0.98, 0.95, 0.85)),
-            ("BOX",           (0, 0), (-1, -1), 1.5, gold),
-            ("TOPPADDING",    (0, 0), (-1, -1), 8),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("BOX",           (0, 0), (-1, -1), 1, gold),
+            ("TOPPADDING",    (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
         story.append(stamp_table)
 
-        story.append(Spacer(1, 3*mm))
+        story.append(Spacer(1, 1.5*mm))
         story.append(HRFlowable(width="100%", thickness=0.5, color=dark_green))
-        story.append(Spacer(1, 1*mm))
+        story.append(Spacer(1, 0.8*mm))
         story.append(Paragraph(
             "AgriTrust AI — Autonomous Parametric Crop Insurance &amp; Disaster Relief Escrow | "
             "MST Blockchain Layer 1 | NEWRRO AI Remote Sensing Engine",
