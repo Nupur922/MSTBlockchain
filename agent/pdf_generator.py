@@ -385,24 +385,14 @@ class PDFCertificateGenerator:
             ["Payout Authorized:",     f"{cert.payout_mst:,.2f} MST  (≈ ₹{cert.payout_inr:,.0f})"],
         ]))
 
-        story.append(Spacer(1, 1.8*mm))
-
-        # ── GRAPH ──────────────────────────────────────────────────────
-        graph_bytes = self._generate_telemetry_graph(cert.ndvi_series, cert.sar_series, cert.disaster_type)
-        if graph_bytes:
-            story.append(section_header("4. SATELLITE TELEMETRY TIME-SERIES GRAPH"))
-            story.append(Spacer(1, 0.8*mm))
-            img_buf = io.BytesIO(graph_bytes)
-            graph_img = RLImage(img_buf, width=W - 24*mm, height=34*mm)
-            story.append(graph_img)
-            story.append(Spacer(1, 1.8*mm))
+        story.append(Spacer(1, 3*mm))
 
         # ── CRYPTOGRAPHIC PROOF ─────────────────────────────────────────
-        story.append(section_header("5. CRYPTOGRAPHIC BLOCKCHAIN PROOF"))
-        story.append(Spacer(1, 0.8*mm))
+        story.append(section_header("4. CRYPTOGRAPHIC BLOCKCHAIN PROOF"))
+        story.append(Spacer(1, 1*mm))
         story.append(info_table([
-            ["EIP-191 AI Proof Hash:", Paragraph(f"<font name='Courier' size='6.5'>{cert.proof_hash}</font>", body_style)],
-            ["MST Blockchain TX Hash:", Paragraph(f"<font name='Courier' size='6.5'>{cert.tx_hash}</font>", body_style)],
+            ["EIP-191 AI Proof Hash:", Paragraph(f"<font name='Courier' size='7'>{cert.proof_hash}</font>", body_style)],
+            ["MST Blockchain TX Hash:", Paragraph(f"<font name='Courier' size='7'>{cert.tx_hash}</font>", body_style)],
             ["Signing Standard:",       "EIP-191 Personal Sign (Ethereum keccak256)"],
             ["ECDSA Recovery:",         "OpenZeppelin ECDSA.recover() verified on MST Layer 1"],
         ], col_widths=[(W - 24*mm) * 0.35, (W - 24*mm) * 0.65]))
