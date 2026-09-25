@@ -70,7 +70,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "success", "call_sid": call_res.get("call_sid")}).encode("utf-8"))
+            self.wfile.write(json.dumps({
+                "status": "success",
+                "call_sid": call_res.get("call_sid"),
+                "whatsapp": call_res.get("whatsapp"),
+            }).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()

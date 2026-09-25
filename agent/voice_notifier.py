@@ -190,6 +190,15 @@ class VoiceNotifier:
         else:
             logger.info("📞  Twilio not configured — text-only mode (add keys to .env)")
 
+        # UltraMsg WhatsApp credentials from .env
+        self._ultramsg_instance_id = os.getenv("ULTRAMSG_INSTANCE_ID", "").strip()
+        self._ultramsg_token       = os.getenv("ULTRAMSG_TOKEN", "").strip()
+
+        if self.ultramsg_configured:
+            logger.info("💬  UltraMsg WhatsApp initialized — Direct WhatsApp alerts ENABLED (Instance: %s)", self._ultramsg_instance_id)
+        else:
+            logger.info("💬  UltraMsg WhatsApp not configured — add ULTRAMSG_INSTANCE_ID and ULTRAMSG_TOKEN to .env for WhatsApp alerts")
+
     @property
     def twilio_configured(self) -> bool:
         return bool(
@@ -198,6 +207,16 @@ class VoiceNotifier:
             and self._twilio_from
             and self._twilio_sid != "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         )
+
+    @property
+    def ultramsg_configured(self) -> bool:
+        return bool(
+            self._ultramsg_instance_id
+            and self._ultramsg_token
+            and not self._ultramsg_instance_id.startswith("your_")
+            and not self._ultramsg_token.startswith("your_")
+        )
+
 
     # ------------------------------------------------------------------
     # Core text generation
@@ -596,7 +615,93 @@ class VoiceNotifier:
                 return None
 
     # ------------------------------------------------------------------
-    # AUTOMATED DUAL ALERT (VOICE CALL + SMS DISPATCH)
+    # LIVE ULTRAMSG WHATSAPP DISPATCH
+    # ------------------------------------------------------------------
+
+    def send_whatsapp_ultramsg(
+        self,
+        to_phone_number: str,
+        farmer_name: str,
+        payout_inr: float,
+        damage_pct: float,
+        disaster_type: str = "Flood",
+        language: str = "hindi",
+        tx_hash: str = "0x8f3a91bc24ef10",
+        pdf_path: Optional[Union[str, Path]] = None,
+    ) -> Optional[dict]:
+        """
+        Sends an automated WhatsApp alert directly to the farmer's WhatsApp via UltraMsg API.
+        Zero TRAI DLT registration required — works instantly on Indian (+91) phone numbers.
+        """
+        env_to = (
+            os.getenv("TWILIO_VERIFIED_TO_NUMBER", "").strip()
+            or os.getenv("TWILIO_TO_PHONE_NUMBER", "").strip()
+            or os.getenv("FARMER_PHONE_NUMBER", "").strip()
+        )
+        if (not to_phone_number or "+919999999999" in to_phone_number) and env_to:
+            to_phone_number = env_to
+
+        clean_number = "".join(filter(str.isdigit, to_phone_number))
+        if len(clean_number) == 10:
+            clean_number = "91" + clean_number
+
+        whatsapp_text = (
+            f"🌾 *AgriTrust AI — Parametric Disaster Relief Alert*\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Namaste *{farmer_name} ji*,\n\n"
+            f"🚨 *Disaster Event:* {disaster_type}\n"
+            f"🛰️ *Satellite Damage:* {damage_pct:.0f}%\n"
+            f"💰 *Relief Payout:* *₹{payout_inr:,.0f}*\n"
+            f"🏛️ *Bank Transfer:* Aadhaar-Linked Account (DBT)\n"
+            f"🔗 *MST Blockchain Tx:* `{tx_hash[:18]}...`\n\n"
+            f"✅ *Consensus Verification:* Copernicus Sentinel-1 SAR & Sentinel-2 Optical multi-source verification passed.\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏛️ _AgriTrust AI Oracle Network — MST Blockchain_"
+        )
+
+        if not self.ultramsg_configured:
+            logger.info(
+                "💬  SIMULATED WHATSAPP (UltraMsg credentials not set in .env):\n"
+                "    To   : +%s\n"
+                "    Body : %s\n"
+                "    Note : Enter ULTRAMSG_INSTANCE_ID and ULTRAMSG_TOKEN in agent/config/.env to enable live dispatch!",
+                clean_number, whatsapp_text.replace('\n', ' ')
+            )
+            return {"status": "simulated", "to": f"+{clean_number}", "body": whatsapp_text}
+
+        try:
+            import requests
+
+            url = f"https://api.ultramsg.com/{self._ultramsg_instance_id}/messages/chat"
+            payload = {
+                "token": self._ultramsg_token,
+                "to": f"+{clean_number}",
+                "body": whatsapp_text,
+            }
+            headers = {"content-type": "application/x-www-form-urlencoded"}
+
+            response = requests.post(url, data=payload, headers=headers, timeout=15)
+            res_data = response.json() if response.content else {}
+
+            if response.status_code == 200 and "id" in res_data:
+                logger.info(
+                    "✅  LIVE WHATSAPP SENT VIA ULTRAMSG:\n"
+                    "    Msg ID  : %s\n"
+                    "    To      : +%s\n"
+                    "    Status  : %s",
+                    res_data.get("id"), clean_number, res_data.get("message", "sent")
+                )
+            else:
+                logger.warning("⚠️  UltraMsg WhatsApp response: %s", res_data)
+
+            return res_data
+
+        except Exception as exc:
+            logger.error("❌  UltraMsg WhatsApp dispatch failed: %s", exc)
+            return None
+
+    # ------------------------------------------------------------------
+    # AUTOMATED DUAL ALERT (VOICE CALL + WHATSAPP / SMS DISPATCH)
     # ------------------------------------------------------------------
 
     def trigger_automated_payout_alert(
@@ -611,9 +716,9 @@ class VoiceNotifier:
         location: Optional[str] = None,
         geojson: Optional[Union[dict, str]] = None,
         tx_hash: str = "0x8f3a91bc24ef10",
-    ) -> dict[str, Optional[str]]:
+    ) -> dict[str, Optional[Union[str, dict]]]:
         """
-        Automatically dispatches BOTH live voice call AND text message notification
+        Automatically dispatches BOTH live voice call AND WhatsApp notification
         the moment an MST Smart Contract payout executes on-chain.
         Auto-detects regional language from uploaded document or location.
         """
@@ -622,6 +727,7 @@ class VoiceNotifier:
             farmer_name, to_phone_number, location or "N/A", language.upper()
         )
         
+        # 1. Live Twilio phone call
         call_sid = self.trigger_live_voice_call(
             to_phone_number=to_phone_number,
             farmer_name=farmer_name,
@@ -634,8 +740,20 @@ class VoiceNotifier:
             geojson=geojson,
         )
 
-        # Live phone call is the primary alert channel
-        return {"call_sid": call_sid}
+        # 2. Live WhatsApp message via UltraMsg
+        whatsapp_res = self.send_whatsapp_ultramsg(
+            to_phone_number=to_phone_number,
+            farmer_name=farmer_name,
+            payout_inr=payout_inr,
+            damage_pct=damage_pct,
+            disaster_type=disaster_type,
+            language=language,
+            tx_hash=tx_hash,
+            pdf_path=document,
+        )
+
+        return {"call_sid": call_sid, "whatsapp": whatsapp_res}
+
 
     # ------------------------------------------------------------------
     # OS TTS (local audio)
