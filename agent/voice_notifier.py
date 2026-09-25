@@ -338,8 +338,13 @@ class VoiceNotifier:
         str : Twilio Call SID if successful, None if failed/mock mode.
         """
         # Fallback to configured target phone number if dummy or empty
-        env_to = os.getenv("TWILIO_TO_PHONE_NUMBER", "").strip()
-        if (not to_phone_number or "+919999999999" in to_phone_number) and env_to:
+        env_to = (
+            os.getenv("TWILIO_TO_PHONE_NUMBER")
+            or os.getenv("TWILIO_VERIFIED_TO_NUMBER")
+            or os.getenv("FARMER_PHONE_NUMBER")
+            or "+917483799325"
+        ).strip()
+        if not to_phone_number or "+919999999999" in to_phone_number:
             to_phone_number = env_to
 
         # Automatic Regional Language Detection
@@ -384,42 +389,103 @@ class VoiceNotifier:
             import urllib.parse
             lang_key = language.lower()
 
+            def _spoken_payout_words(amount: float, lk: str) -> str:
+                n = int(round(amount))
+                if n <= 0:
+                    return "shunya" if lk != "english" else "zero"
+                if n >= 100000:
+                    lakhs = n // 100000
+                    rem = n % 100000
+                    extra = f" {_spoken_payout_words(rem, lk)}" if rem > 0 else ""
+                    return f"{lakhs} lakh{extra}".strip()
+                elif n >= 1000:
+                    thousands = n // 1000
+                    rem = n % 1000
+                    unit = "hajar" if lk == "assamese" else ("thousand" if lk == "english" else "hazaar")
+                    extra = f" {_spoken_payout_words(rem, lk)}" if rem > 0 else ""
+                    return f"{thousands} {unit}{extra}".strip()
+                else:
+                    return str(n)
+
+            payout_words = _spoken_payout_words(payout_inr, lang_key)
+            damage_pct_int = int(round(damage_pct))
+
+            # Disaster term localization
+            disaster_lower = (disaster_type or "flood").lower()
+            if "drought" in disaster_lower or "sukha" in disaster_lower:
+                dis_terms = {
+                    "assamese": "kharang",
+                    "bhojpuri": "sukha",
+                    "hindi": "sukha",
+                    "english": "drought",
+                }
+            else:
+                dis_terms = {
+                    "assamese": "baanpani",
+                    "bhojpuri": "baadh",
+                    "hindi": "baadh",
+                    "english": "flood",
+                }
+            disaster_word = dis_terms.get(lang_key, disaster_type)
+
             # Dynamic Spoken Text strictly localized by detected regional dialect
             if lang_key == "assamese":
                 spoken_text = (
                     f"Namaste {farmer_name} da! "
-                    f"AgriTrust AI Satellite-e aapunar khetot {damage_pct:.0f} percent "
-                    f"{disaster_type} khotikhoya nischit koriche. "
-                    f"Rupiah {payout_inr:,.0f} takaar sahayota payment aapunar bank account-ot pothiaai dia hoise. "
-                    f"Dhanyabad!"
+                    f"Eiya AgriTrust AI aru Krishi Sahayata Kendro-r aapatkaalin call hoi. "
+                    f"Sentinel Satellite Radar-e aapunar khetot, {damage_pct_int} percent, {disaster_word} khotikhoya nischit koriche. "
+                    f"Aapunar bima sahayota bhugtaan, muth {payout_words} toka, seedhe aapunar bank account-ot pothiaai diya hoise. "
+                    f"Aapuni ei dharor rashi nijor usoror Post Office ba Gramin Bank-ot goi, Aadhaar Card-or joriyote cash out koribo paribo. "
+                    f"Dohraai asu: {payout_words} toka safalatarere transfer kora hoise. "
+                    f"AgriTrust AI-r logot jorito thakar babe oshesh dhanyabad! Shubh din!"
                 )
+                repeat_text = f"Dohraai asu: {payout_words} toka sahayota bhugtaan aapunar khate pothiaai diya hoise. Dhanyabad!"
             elif lang_key == "bhojpuri":
                 spoken_text = (
                     f"Pranam {farmer_name} bhaiya! "
-                    f"AgriTrust AI Satellite hamar khet par {damage_pct:.0f} percent "
-                    f"{disaster_type} nuksaan confirm karke ba. "
-                    f"Rupaya {payout_inr:,.0f} ke rahat bhugtaan aapan bank mein bhej dihal gail ba. "
-                    f"Dhanyavad!"
+                    f"E AgriTrust AI aur Krishi Sahayata Kendra ke aapatkaalin call ba. "
+                    f"Hamar Sentinel Satellite radar aapke khet par, {damage_pct_int} percent, {disaster_word} ke nuksaan confirm karke ba. "
+                    f"Rauwa ke bima rahat bhugtaan, kul {payout_words} rupaya, seedhe rauwa ke bank khata mein bhej dihal gail ba. "
+                    f"Rauwa e paisa aapan nazdeeki Gramin Bank ya Post Office jaake, Aadhaar Card se turant nikaal sakat baani. "
+                    f"Dohraawat baani: {payout_words} rupaya safaltaapoorvak transfer ho gail ba. "
+                    f"AgriTrust AI se jude khatir bahut bahut dhanyavad! Rauwa ke din shubh rahe!"
                 )
+                repeat_text = f"Dohraawat baani: {payout_words} rupaya rahat bhugtaan rauwa ke bank mein transfer ho gail ba. Dhanyavad!"
             elif lang_key == "english":
                 spoken_text = (
                     f"Hello {farmer_name} ji! "
-                    f"AgriTrust AI Satellite has confirmed {damage_pct:.0f} percent "
-                    f"{disaster_type} damage on your farm plot. "
-                    f"A relief payout of rupees {payout_inr:,.0f} has been transferred to your bank account. "
-                    f"Thank you!"
+                    f"This is an automated emergency disaster relief alert from AgriTrust AI. "
+                    f"Sentinel Satellite Radar has confirmed {damage_pct_int} percent {disaster_word} damage on your registered farm plot. "
+                    f"Your parametric crop insurance payout of {payout_words} rupees has been successfully transferred to your bank account. "
+                    f"You can cash out this relief money immediately at your nearest Post Office or Bank branch using your Aadhaar biometric. "
+                    f"Repeating: {payout_words} rupees has been credited. "
+                    f"Thank you for being with AgriTrust AI. Have a wonderful day!"
                 )
+                repeat_text = f"Repeating: {payout_words} rupees relief payout has been transferred to your bank account. Thank you!"
             else:  # Hindi or default
                 spoken_text = (
                     f"Namaste {farmer_name} ji! "
-                    f"AgriTrust AI Satellite ne aapke khet mein {damage_pct:.0f} percent "
-                    f"{disaster_type} damage confirm kiya hai. "
-                    f"Rupaye {payout_inr:,.0f} ka rahat bhugtaan aapke bank khate mein bhej diya gaya hai. "
-                    f"Dhanyavaad!"
+                    f"Yeh AgriTrust AI aur Krishi Bima Sahayata Kendra ki taraf se zaroori aapatkaalin call hai. "
+                    f"Humare Sentinel Satellite Radar ne aapke khet mein, {damage_pct_int} percent, {disaster_word} nuksaan ki pushti ki hai. "
+                    f"Aapka bima rahat bhugtaan, kul {payout_words} rupaye, seedhe aapke bank khate mein safaltaapoorvak bhej diya gaya hai. "
+                    f"Aap yeh rashi apne nazdeeki Post Office ya Bank Branch par jakar, apne Aadhaar card se turant nikal sakte hain. "
+                    f"Dohra rahe hain: {payout_words} rupaye ka bima rahat bhugtaan transfer ho chuka hai. "
+                    f"AgriTrust AI se judne ke liye bahut bahut dhanyavaad. Shubh din!"
                 )
+                repeat_text = f"Dohra rahe hain: {payout_words} rupaye ka bima rahat bhugtaan aapke bank khate mein safaltaapoorvak bhej diya gaya hai. Dhanyavaad!"
 
-            encoded_msg = urllib.parse.quote(spoken_text)
-            twimlet_url = f"https://twimlets.com/message?Message%5B0%5D={encoded_msg}"
+            voice, lang_code = TWILIO_VOICES.get(lang_key, ("Polly.Aditi", "hi-IN"))
+
+            # Standard valid TwiML with Amazon Polly Aditi native Indian voice
+            clear_twiml = (
+                f'<Response>'
+                f'<Say voice="{voice}" language="{lang_code}">{spoken_text}</Say>'
+                f'<Pause length="2"/>'
+                f'<Say voice="{voice}" language="{lang_code}">{repeat_text}</Say>'
+                f'</Response>'
+            )
+            encoded_twiml = urllib.parse.quote(clear_twiml)
+            twimlet_url = f"https://twimlets.com/echo?Twiml={encoded_twiml}"
 
             call = self._twilio_client.calls.create(
                 url=twimlet_url,
@@ -473,6 +539,27 @@ class VoiceNotifier:
             f"Payout: ₹{payout_inr:,.0f} transferred to your bank account.\n"
             f"MST Tx: {tx_hash[:16]}..."
         )
+
+        # 1. Instant Free Mobile Push Notification (Zero cost, rings on phone)
+        try:
+            import requests
+            clean_digits = "".join(filter(str.isdigit, to_phone_number))[-10:]
+            if clean_digits:
+                ntfy_topic = f"agritrust{clean_digits}"
+                requests.post(
+                    f"https://ntfy.sh/{ntfy_topic}",
+                    data=sms_text.encode("utf-8"),
+                    headers={
+                        "Title": f"AgriTrust AI Relief Alert (Rs {payout_inr:,.0f})",
+                        "Priority": "urgent",
+                        "Tags": "seedling,money_with_wings,bell",
+                        "Click": f"https://ntfy.sh/{ntfy_topic}",
+                    },
+                    timeout=5,
+                )
+                logger.info("📲  Instant Free Mobile Notification sent to: https://ntfy.sh/%s", ntfy_topic)
+        except Exception as ntfy_err:
+            logger.debug("Mobile push skipped: %s", ntfy_err)
 
         if not self.twilio_configured or self._twilio_client is None:
             logger.info("📱  MOCK SMS (Twilio not configured):\n%s", sms_text)
@@ -547,16 +634,8 @@ class VoiceNotifier:
             geojson=geojson,
         )
 
-        sms_sid = self.send_sms_notification(
-            to_phone_number=to_phone_number,
-            farmer_name=farmer_name,
-            payout_inr=payout_inr,
-            damage_pct=damage_pct,
-            disaster_type=disaster_type,
-            tx_hash=tx_hash,
-        )
-
-        return {"call_sid": call_sid, "sms_sid": sms_sid}
+        # Live phone call is the primary alert channel
+        return {"call_sid": call_sid}
 
     # ------------------------------------------------------------------
     # OS TTS (local audio)

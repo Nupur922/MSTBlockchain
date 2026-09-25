@@ -291,6 +291,12 @@ class SentinelAgent:
                 logger.warning("⚠️  FarmRegistry call failed (%s), using demo plots.", exc)
 
         # Demo fallback plots
+        default_phone = (
+            os.getenv("TWILIO_VERIFIED_TO_NUMBER")
+            or os.getenv("TWILIO_TO_PHONE_NUMBER")
+            or os.getenv("FARMER_PHONE_NUMBER")
+            or "+917483799325"
+        ).strip()
         return [
             {
                 "id": 1, "owner": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
@@ -303,6 +309,7 @@ class SentinelAgent:
                 "acreage": 3, "cropType": "RICE", "enrolled": True,
                 "farmerName": "Ram Singh", "location": "Darbhanga, Bihar",
                 "document": "agent/documents/bihar_bhumi_khatiyan.txt",
+                "phoneNumber": default_phone,
             },
             {
                 "id": 2, "owner": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
@@ -315,6 +322,7 @@ class SentinelAgent:
                 "acreage": 5, "cropType": "RICE", "enrolled": True,
                 "farmerName": "Prasanta Kalita", "location": "Majuli, Assam",
                 "document": "agent/documents/assam_dharitree_patta.txt",
+                "phoneNumber": default_phone,
             },
         ]
 
@@ -388,7 +396,13 @@ class SentinelAgent:
                 tx_hash = self._execute_payout(plot_id, payout_wei, proof.timestamp, proof.signature_hex)
 
                 payout_mst = payout_wei / 10**18
-                farmer_phone = plot.get("phoneNumber", "+919999999999")
+                farmer_phone = (
+                    plot.get("phoneNumber")
+                    or os.getenv("TWILIO_VERIFIED_TO_NUMBER")
+                    or os.getenv("TWILIO_TO_PHONE_NUMBER")
+                    or os.getenv("FARMER_PHONE_NUMBER")
+                    or "+917483799325"
+                ).strip()
 
                 # ── V2: Generate PDF Audit Certificate ──────────────────
                 try:
@@ -436,8 +450,7 @@ class SentinelAgent:
                         tx_hash=tx_hash or "0xDEMO_PAYOUT_TX",
                     )
                     call_sid = alert_res.get("call_sid")
-                    sms_sid  = alert_res.get("sms_sid")
-                    logger.info("📞  \033[92mTwilio Call SID: %s | SMS SID: %s\033[0m", call_sid, sms_sid)
+                    logger.info("📞  \033[92mTwilio Live Call SID: %s\033[0m", call_sid)
                 except Exception as call_exc:
                     logger.warning("⚠️  Twilio alert failed: %s", call_exc)
 
