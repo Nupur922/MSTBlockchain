@@ -68,10 +68,11 @@ const StatusIndicator = ({ label, status, description }) => {
 };
 
 const PlotTelemetry = () => {
-  // Mock telemetry data - will be replaced with satellite/IoT data later
+  // Mock telemetry data - satellite feeds: Sentinel-2 NDVI, Sentinel-1 SAR, Sentinel-2 NDWI
   const [telemetry, setTelemetry] = useState({
     ndvi: 0.72, // Normalized Difference Vegetation Index (0.0 - 1.0)
     sarFloodInundation: 0.15, // SAR Flood Inundation (0.0 - 1.0)
+    ndwiDrought: -0.12, // Normalized Difference Water Index (-1.0 to +1.0)
     soilMoisture: 0.65, // Soil moisture (0.0 - 1.0)
   });
 
@@ -81,6 +82,7 @@ const PlotTelemetry = () => {
       setTelemetry((prev) => ({
         ndvi: Math.max(0, Math.min(1, prev.ndvi + (Math.random() - 0.5) * 0.05)),
         sarFloodInundation: Math.max(0, Math.min(1, prev.sarFloodInundation + (Math.random() - 0.5) * 0.03)),
+        ndwiDrought: Math.max(-1, Math.min(1, prev.ndwiDrought + (Math.random() - 0.5) * 0.04)),
         soilMoisture: Math.max(0, Math.min(1, prev.soilMoisture + (Math.random() - 0.5) * 0.04)),
       }));
     }, 3000);
@@ -90,18 +92,25 @@ const PlotTelemetry = () => {
 
   // Determine status based on telemetry
   const getFloodStatus = () => {
-    if (telemetry.sarFloodInundation > 0.5) return { status: 'critical', desc: 'High flood risk detected' };
+    if (telemetry.sarFloodInundation > 0.5) return { status: 'critical', desc: 'High flood inundation detected' };
     if (telemetry.sarFloodInundation > 0.25) return { status: 'warning', desc: 'Moderate flood risk' };
-    return { status: 'normal', desc: 'No flood detected' };
+    return { status: 'normal', desc: 'Normal water level' };
+  };
+
+  const getDroughtStatus = () => {
+    if (telemetry.ndwiDrought < -0.35) return { status: 'critical', desc: 'Critical drought risk: NDWI < -0.35' };
+    if (telemetry.ndwiDrought < -0.15) return { status: 'warning', desc: 'Moderate moisture deficit' };
+    return { status: 'normal', desc: 'Adequate moisture levels' };
   };
 
   const getVegetationStatus = () => {
-    if (telemetry.ndvi < 0.3) return { status: 'critical', desc: 'Poor vegetation health' };
-    if (telemetry.ndvi < 0.5) return { status: 'warning', desc: 'Below optimal health' };
-    return { status: 'normal', desc: 'Healthy vegetation' };
+    if (telemetry.ndvi < 0.3) return { status: 'critical', desc: 'Severe crop loss detected' };
+    if (telemetry.ndvi < 0.5) return { status: 'warning', desc: 'Below optimal vegetation health' };
+    return { status: 'normal', desc: 'Healthy crop canopy' };
   };
 
   const floodStatus = getFloodStatus();
+  const droughtStatus = getDroughtStatus();
   const vegetationStatus = getVegetationStatus();
 
   return (
@@ -109,15 +118,15 @@ const PlotTelemetry = () => {
       {/* Header */}
       <div className="flex items-center space-x-2 mb-6">
         <Activity className="w-6 h-6 text-primary" />
-        <h2 className="text-xl font-bold text-gray-900">Plot Telemetry & Monitoring</h2>
+        <h2 className="text-xl font-bold text-gray-900">Plot Telemetry & Satellite Monitoring</h2>
       </div>
 
       {/* Gauges */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <CircularGauge
           value={telemetry.ndvi}
           max={1.0}
-          label="NDVI"
+          label="NDVI (Optical)"
           unit="/1.0"
           color="#10b981"
           icon={Leaf}
@@ -125,10 +134,18 @@ const PlotTelemetry = () => {
         <CircularGauge
           value={telemetry.sarFloodInundation}
           max={1.0}
-          label="Flood Inundation"
+          label="SAR Flood"
           unit="/1.0"
           color="#3b82f6"
           icon={Droplets}
+        />
+        <CircularGauge
+          value={Math.max(0, (telemetry.ndwiDrought + 1) / 2)}
+          max={1.0}
+          label="NDWI Moisture"
+          unit={telemetry.ndwiDrought.toFixed(2)}
+          color="#f59e0b"
+          icon={Activity}
         />
         <CircularGauge
           value={telemetry.soilMoisture}
@@ -142,23 +159,28 @@ const PlotTelemetry = () => {
 
       {/* Status Indicators */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Status Alerts</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Multi-Feed Status Alerts</h3>
         <StatusIndicator
-          label="Flood Risk Assessment"
+          label="Flood Risk Assessment (Sentinel-1 SAR)"
           status={floodStatus.status}
           description={floodStatus.desc}
         />
         <StatusIndicator
-          label="Vegetation Health"
+          label="NDWI Drought Monitoring (Sentinel-2 SWIR)"
+          status={droughtStatus.status}
+          description={droughtStatus.desc}
+        />
+        <StatusIndicator
+          label="Vegetation Health (Sentinel-2 NDVI)"
           status={vegetationStatus.status}
           description={vegetationStatus.desc}
         />
       </div>
 
       {/* Info Footer */}
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <p className="text-sm text-blue-800">
-          <span className="font-semibold">Data Source:</span> Satellite imagery (Sentinel-2 for NDVI, Sentinel-1 SAR for flood detection). Updates every 3 seconds (simulated).
+      <div className="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+        <p className="text-sm text-emerald-900">
+          <span className="font-semibold">Satellite Telemetry Sources:</span> Sentinel-1 C-Band SAR (Flood), Sentinel-2 MSI Bands 4/8 (NDVI), Sentinel-2 SWIR Band 11 (NDWI Drought). Updates every 3s.
         </p>
       </div>
     </div>

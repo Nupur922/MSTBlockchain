@@ -10,6 +10,8 @@ import VoiceAlertModal      from './components/VoiceAlertModal';
 import AePSCashoutModal     from './components/AePSCashoutModal';
 import QRScannerModal       from './components/QRScannerModal';
 import FarmerEnrollmentModal from './components/FarmerEnrollmentModal';
+import PDFEvidenceModal     from './components/PDFEvidenceModal';
+import { FileText }          from 'lucide-react';
 
 import { getAgriTrustVaultContract } from './utils/web3';
 
@@ -36,6 +38,7 @@ function App() {
   const [showAePS,     setShowAePS]     = useState(false);
   const [showQR,       setShowQR]       = useState(false);
   const [showEnroll,   setShowEnroll]   = useState(false);
+  const [showPDFEvidence, setShowPDFEvidence] = useState(false);
 
   // ── Chain connection ──────────────────────────────────────────────────────
   const [chainStatus,  setChainStatus]  = useState('disconnected');
@@ -213,6 +216,7 @@ function App() {
       <VoiceAlertModal
         isOpen={showVoice}
         onClose={() => setShowVoice(false)}
+        onOpenPDF={() => setShowPDFEvidence(true)}
         payoutAmount={payoutEvent.payoutAmount}
         plotId={payoutEvent.plotId}
         stateName={payoutEvent.stateName}
@@ -234,6 +238,12 @@ function App() {
         onClose={() => setShowEnroll(false)}
         onEnrolled={handleEnrolled}
       />
+      <PDFEvidenceModal
+        isOpen={showPDFEvidence}
+        onClose={() => setShowPDFEvidence(false)}
+        plotData={qrScannedPlot}
+        payoutEvent={payoutEvent}
+      />
 
       {/* ── Dashboard ── */}
       <main className="container mx-auto px-4 py-8">
@@ -243,8 +253,16 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Map column */}
           <div>
-            {/* QR Scan + Enroll buttons */}
-            <div className="flex justify-end space-x-2 mb-2">
+            {/* Action buttons bar */}
+            <div className="flex flex-wrap justify-end gap-2 mb-2">
+              <button
+                onClick={() => setShowPDFEvidence(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
+                title="Download Official Satellite Audit Certificate (PDF Evidence)"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Audit Certificate (PDF Evidence)</span>
+              </button>
               <button
                 onClick={() => setShowQR(true)}
                 className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
