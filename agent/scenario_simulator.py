@@ -140,8 +140,10 @@ class ScenarioSimulator:
         rainfall_mm_48h: float,
         status_label: str,
         language: str = "hindi",
+        trigger_call: bool = False,
+        to_phone_number: Optional[str] = None,
     ) -> ScenarioResult:
-        """Internal: build, evaluate, sign, and narrate a scenario."""
+        """Internal: build, evaluate, sign, narrate, and optionally dispatch call for a scenario."""
 
         ndvi_loss_pct = round(
             max(0.0, (pre_event_ndvi - post_ndvi) / pre_event_ndvi * 100.0), 2
@@ -207,6 +209,19 @@ class ScenarioSimulator:
             summary.append(f"  Proof Hash  : {proof.proof_hash}")
             summary.append(f"  Signature   : {proof.signature_hex[:26]}…")
 
+        # Optional: Trigger Live Phone Call if requested
+        if trigger_call and consensus.is_approved and payout_inr > 0:
+            call_res = self._voice.trigger_automated_payout_alert(
+                to_phone_number=to_phone_number or os.getenv("TWILIO_VERIFIED_TO_NUMBER") or "+917483799325",
+                farmer_name=farmer_name,
+                payout_inr=payout_inr,
+                damage_pct=consensus.verified_damage_pct,
+                disaster_type="Flood",
+                language=language,
+                location=location,
+            )
+            summary.append(f"  Live Call   : 📞 DISPATCHED (SID: {call_res.get('call_sid')})")
+
         return ScenarioResult(
             scenario_name=scenario_name,
             plot_id=plot_id,
@@ -264,7 +279,11 @@ class ScenarioSimulator:
     # Scenario 2 — Assam Brahmaputra Flood
     # ------------------------------------------------------------------
 
-    def assam_brahmaputra_flood(self) -> ScenarioResult:
+    def assam_brahmaputra_flood(
+        self,
+        trigger_call: bool = False,
+        to_phone_number: Optional[str] = None,
+    ) -> ScenarioResult:
         """
         Scenario 2: Assam Brahmaputra Critical Flood.
 
@@ -287,13 +306,19 @@ class ScenarioSimulator:
             rainfall_mm_48h=210.0,
             status_label="ASSAM CRITICAL FLOOD — 65% PAYOUT APPROVED",
             language="assamese",
+            trigger_call=trigger_call,
+            to_phone_number=to_phone_number,
         )
 
     # ------------------------------------------------------------------
     # Scenario 3 — Bihar Kosi Flood
     # ------------------------------------------------------------------
 
-    def bihar_kosi_flood(self) -> ScenarioResult:
+    def bihar_kosi_flood(
+        self,
+        trigger_call: bool = False,
+        to_phone_number: Optional[str] = None,
+    ) -> ScenarioResult:
         """
         Scenario 3: Bihar Kosi River Severe Flood.
 
@@ -316,18 +341,20 @@ class ScenarioSimulator:
             rainfall_mm_48h=185.0,
             status_label="BIHAR SEVERE FLOOD — 50% PAYOUT APPROVED",
             language="bhojpuri",
+            trigger_call=trigger_call,
+            to_phone_number=to_phone_number,
         )
 
     # ------------------------------------------------------------------
     # Run all scenarios (CLI batch)
     # ------------------------------------------------------------------
 
-    def run_all(self) -> list[ScenarioResult]:
+    def run_all(self, trigger_call: bool = False, to_phone_number: Optional[str] = None) -> list[ScenarioResult]:
         """Run all 3 scenarios and return results."""
         results = [
             self.baseline_healthy(),
-            self.assam_brahmaputra_flood(),
-            self.bihar_kosi_flood(),
+            self.assam_brahmaputra_flood(trigger_call=trigger_call, to_phone_number=to_phone_number),
+            self.bihar_kosi_flood(trigger_call=trigger_call, to_phone_number=to_phone_number),
         ]
         for r in results:
             print()
@@ -338,9 +365,30 @@ class ScenarioSimulator:
 
 
 # ---------------------------------------------------------------------------
-# Quick smoke-test
+# CLI Entry Point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="AgriTrust AI Scenario Simulator")
+    parser.add_argument("--scenario", type=int, choices=[1, 2, 3], default=None, help="Scenario to run (1=Healthy, 2=Assam, 3=Bihar)")
+    parser.add_argument("--call", action="store_true", help="Trigger live phone call to farmer/test number upon payout")
+    parser.add_argument("--phone", type=str, default=None, help="Custom target phone number (e.g. +917483799325)")
+    args = parser.parse_args()
+
     sim = ScenarioSimulator()
-    sim.run_all()
+    if args.scenario == 1:
+        res = sim.baseline_healthy()
+        for line in res.summary_lines:
+            print(line)
+    elif args.scenario == 2:
+        res = sim.assam_brahmaputra_flood(trigger_call=args.call, to_phone_number=args.phone)
+        for line in res.summary_lines:
+            print(line)
+    elif args.scenario == 3:
+        res = sim.bihar_kosi_flood(trigger_call=args.call, to_phone_number=args.phone)
+        for line in res.summary_lines:
+            print(line)
+    else:
+        sim.run_all(trigger_call=args.call, to_phone_number=args.phone)
