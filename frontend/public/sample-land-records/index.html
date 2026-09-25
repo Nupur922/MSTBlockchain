@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AgriTrust AI — State Land Record Certificates (Bhu-Naksha / 7/12 / RoR)</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 24px; color: #333; }
+    h1 { text-align: center; color: #1e3a8a; margin-bottom: 8px; font-size: 26px; }
+    p.subtitle { text-align: center; color: #64748b; font-size: 14px; margin-bottom: 30px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 24px; max-width: 1200px; margin: 0 auto; }
+    .card { background: white; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 2px solid #e2e8f0; overflow: hidden; display: flex; flex-direction: column; }
+    .header { padding: 16px; color: white; display: flex; align-items: center; justify-content: space-between; }
+    .header.mh { background: linear-gradient(135deg, #ea580c, #c2410c); }
+    .header.gj { background: linear-gradient(135deg, #d97706, #b45309); }
+    .header.ka { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+    .header.pb { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+    .header.tn { background: linear-gradient(135deg, #059669, #047857); }
+    .header.wb { background: linear-gradient(135deg, #0284c7, #0369a1); }
+    .header.bh { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+    .header.as { background: linear-gradient(135deg, #16a34a, #15803d); }
+    .body { padding: 20px; flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .qr-box { padding: 12px; background: white; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .details { width: 100%; font-size: 13px; line-height: 1.6; border-top: 1px solid #f1f5f9; padding-top: 12px; }
+    .row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .label { color: #64748b; font-weight: 500; }
+    .val { font-weight: 600; color: #1e293b; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: rgba(255,255,255,0.25); }
+    .instructions { max-width: 900px; margin: 0 auto 30px auto; background: #e0e7ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 16px; font-size: 14px; color: #3730a3; }
+    .btn-download { margin-top: 12px; width: 100%; padding: 8px; border-radius: 8px; border: none; background: #f1f5f9; color: #334155; font-weight: 600; cursor: pointer; font-size: 12px; }
+    .btn-download:hover { background: #e2e8f0; }
+  </style>
+</head>
+<body>
+
+  <h1>🌾 AgriTrust AI — Indian State Land Record Certificates</h1>
+  <p class="subtitle">Official simulated 7/12 Extracts, RoR Pahani &amp; Bhu-Naksha Land Record QR Documents</p>
+
+  <div class="instructions">
+    <strong>📋 How to use for demo:</strong>
+    <ol style="margin-top: 6px; padding-left: 20px;">
+      <li>Open this page in your browser or take a screenshot of any certificate card below.</li>
+      <li>In the <strong>AgriTrust AI Dashboard</strong>, click <strong>"Scan / Upload Land Record QR"</strong>.</li>
+      <li>Upload the screenshot OR click any state quick-test button in the scanner modal!</li>
+      <li>Notice how the plot is immediately placed on the map in that exact state, and when an emergency is simulated, the AI voice alert speaks in that <strong>State's Native Regional Language</strong> (e.g. Marathi for Maharashtra, Gujarati for Gujarat, etc.).</li>
+    </ol>
+  </div>
+
+  <div class="grid" id="records-grid"></div>
+
+  <script>
+    const RECORDS = [
+      {
+        state: 'Maharashtra',
+        stateClass: 'mh',
+        portal: 'MahaBhumi (7/12 Extract)',
+        langBadge: 'Marathi (मराठी)',
+        farmer: 'Ganesh Shinde',
+        khasra: 'Gat No. 142/3',
+        village: 'Dindori, Nashik',
+        crop: 'Grapes / Onions',
+        area: '1.40 Hectares',
+        payload: {
+          id: 'MH-2024-NASHIK-712',
+          state: 'Maharashtra',
+          statePortal: 'MahaBhumi (7/12 Extract)',
+          village: 'Dindori, Nashik',
+          khasraNo: 'Gat No. 142/3',
+          cropType: 'Grapes / Onions',
+          areaHectares: 1.4,
+          coordinates: [[19.9975, 73.7898], [19.9975, 73.7920], [19.9950, 73.7920], [19.9950, 73.7898]],
+          center: [19.9962, 73.7909],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[73.7898, 19.9975], [73.7920, 19.9975], [73.7920, 19.9950], [73.7898, 19.9950], [73.7898, 19.9975]]] })
+        }
+      },
+      {
+        state: 'Gujarat',
+        stateClass: 'gj',
+        portal: 'AnyRoR Gujarat (Form 7/12)',
+        langBadge: 'Gujarati (ગુજરાતી)',
+        farmer: 'Bhavesh Patel',
+        khasra: 'Survey No. 89/1',
+        village: 'Petlad, Anand',
+        crop: 'Tobacco / Cotton',
+        area: '1.10 Hectares',
+        payload: {
+          id: 'GJ-2024-ANAND-ROR',
+          state: 'Gujarat',
+          statePortal: 'AnyRoR Gujarat (Village Form 7/12)',
+          village: 'Petlad, Anand',
+          khasraNo: 'Survey No. 89/1',
+          cropType: 'Tobacco / Cotton',
+          areaHectares: 1.1,
+          coordinates: [[22.5645, 72.9289], [22.5645, 72.9315], [22.5620, 72.9315], [22.5620, 72.9289]],
+          center: [22.5632, 72.9302],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[72.9289, 22.5645], [72.9315, 22.5645], [72.9315, 22.5620], [72.9289, 22.5620], [72.9289, 22.5645]]] })
+        }
+      },
+      {
+        state: 'Karnataka',
+        stateClass: 'ka',
+        portal: 'Bhoomi RTC Pahani',
+        langBadge: 'Kannada (ಕನ್ನಡ)',
+        farmer: 'Basavaraj Gowda',
+        khasra: 'Hissa No. 45/A',
+        village: 'Pandavapura, Mandya',
+        crop: 'Sugarcane / Paddy',
+        area: '1.80 Hectares',
+        payload: {
+          id: 'KA-2024-MANDYA-RTC',
+          state: 'Karnataka',
+          statePortal: 'Bhoomi Karnataka (RTC Pahani)',
+          village: 'Pandavapura, Mandya',
+          khasraNo: 'Hissa No. 45/A',
+          cropType: 'Sugarcane / Paddy',
+          areaHectares: 1.8,
+          coordinates: [[12.5218, 76.8958], [12.5218, 76.8985], [12.5190, 76.8985], [12.5190, 76.8958]],
+          center: [12.5204, 76.8971],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[76.8958, 12.5218], [76.8985, 12.5218], [76.8985, 12.5190], [76.8958, 12.5190], [76.8958, 12.5218]]] })
+        }
+      },
+      {
+        state: 'Punjab',
+        stateClass: 'pb',
+        portal: 'PLRS Punjab Jamabandi',
+        langBadge: 'Punjabi (ਪੰਜਾਬੀ)',
+        farmer: 'Harpreet Singh Dhillon',
+        khasra: 'Khasra 312//14-15',
+        village: 'Samrala, Ludhiana',
+        crop: 'Wheat / Paddy',
+        area: '2.20 Hectares',
+        payload: {
+          id: 'PB-2024-LUDHIANA-JAMABANDI',
+          state: 'Punjab',
+          statePortal: 'PLRS Punjab (Jamabandi Record)',
+          village: 'Samrala, Ludhiana',
+          khasraNo: 'Khasra 312//14-15',
+          cropType: 'Wheat / Paddy',
+          areaHectares: 2.2,
+          coordinates: [[30.9010, 75.8573], [30.9010, 75.8600], [30.8985, 75.8600], [30.8985, 75.8573]],
+          center: [30.8997, 75.8586],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[75.8573, 30.9010], [75.8600, 30.9010], [75.8600, 30.8985], [75.8573, 30.8985], [75.8573, 30.9010]]] })
+        }
+      },
+      {
+        state: 'Tamil Nadu',
+        stateClass: 'tn',
+        portal: 'AnyPatta Tamil Nadu',
+        langBadge: 'Tamil (தமிழ்)',
+        farmer: 'Murugan Selvam',
+        khasra: 'Survey 204/B',
+        village: 'Kumbakonam, Thanjavur',
+        crop: 'Paddy (Kuruvai)',
+        area: '0.90 Hectares',
+        payload: {
+          id: 'TN-2024-THANJAVUR-PATTA',
+          state: 'Tamil Nadu',
+          statePortal: 'AnyPatta Tamil Nadu (Chitta Extract)',
+          village: 'Kumbakonam, Thanjavur',
+          khasraNo: 'Survey 204/B',
+          cropType: 'Paddy (Kuruvai)',
+          areaHectares: 0.9,
+          coordinates: [[10.7870, 79.1378], [10.7870, 79.1405], [10.7845, 79.1405], [10.7845, 79.1378]],
+          center: [10.7857, 79.1391],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[79.1378, 10.7870], [79.1405, 10.7870], [79.1405, 10.7845], [79.1378, 10.7845], [79.1378, 10.7870]]] })
+        }
+      },
+      {
+        state: 'West Bengal',
+        stateClass: 'wb',
+        portal: 'BanglarBhumi Khatian',
+        langBadge: 'Bengali (বাংলা)',
+        farmer: 'Subrata Mukherjee',
+        khasra: 'Dag No. 512',
+        village: 'Kalna, Purba Bardhaman',
+        crop: 'Aman Paddy / Jute',
+        area: '1.30 Hectares',
+        payload: {
+          id: 'WB-2024-BURDWAN-ROR',
+          state: 'West Bengal',
+          statePortal: 'BanglarBhumi West Bengal (Khatian / Plot)',
+          village: 'Kalna, Purba Bardhaman',
+          khasraNo: 'Dag No. 512',
+          cropType: 'Aman Paddy / Jute',
+          areaHectares: 1.3,
+          coordinates: [[23.2324, 87.8615], [23.2324, 87.8640], [23.2300, 87.8640], [23.2300, 87.8615]],
+          center: [23.2312, 87.8627],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[87.8615, 23.2324], [87.8640, 23.2324], [87.8640, 23.2300], [87.8615, 23.2300], [87.8615, 23.2324]]] })
+        }
+      },
+      {
+        state: 'Bihar',
+        stateClass: 'bh',
+        portal: 'Bihar Bhumi Bhu-Naksha',
+        langBadge: 'Bhojpuri (भोजपुरी)',
+        farmer: 'Ramesh Yadav',
+        khasra: 'KH-2241/B',
+        village: 'Kamtaul, Darbhanga',
+        crop: 'Rice (Kharif)',
+        area: '1.20 Hectares',
+        payload: {
+          id: 'BH-2024-DARBHANGA-001',
+          state: 'Bihar',
+          statePortal: 'Bihar Bhumi (Bhu-Naksha RoR)',
+          village: 'Kamtaul, Darbhanga',
+          khasraNo: 'KH-2241/B',
+          cropType: 'Rice (Kharif)',
+          areaHectares: 1.2,
+          coordinates: [[26.1740, 85.8910], [26.1760, 85.8910], [26.1760, 85.8940], [26.1740, 85.8940]],
+          center: [26.1750, 85.8925],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[85.8910, 26.1740], [85.8910, 26.1760], [85.8940, 26.1760], [85.8940, 26.1740], [85.8910, 26.1740]]] })
+        }
+      },
+      {
+        state: 'Assam',
+        stateClass: 'as',
+        portal: 'Dharitree Jamabandi',
+        langBadge: 'Assamese (অসমীয়া)',
+        farmer: 'Dipak Saikia',
+        khasra: 'Dag 108/3',
+        village: 'Kamalabari, Majuli',
+        crop: 'Bao Rice',
+        area: '1.60 Hectares',
+        payload: {
+          id: 'AS-2024-MAJULI-DHARITREE',
+          state: 'Assam',
+          statePortal: 'ILRMS Dharitree Assam (Jamabandi)',
+          village: 'Kamalabari, Majuli',
+          khasraNo: 'Dag 108/3',
+          cropType: 'Bao Rice (Deepwater)',
+          areaHectares: 1.6,
+          coordinates: [[26.96, 94.20], [26.97, 94.20], [26.97, 94.22], [26.96, 94.22]],
+          center: [26.965, 94.21],
+          geoJson: JSON.stringify({ type: 'Polygon', coordinates: [[[94.20, 26.96], [94.20, 26.97], [94.22, 26.97], [94.22, 26.96], [94.20, 26.96]]] })
+        }
+      }
+    ];
+
+    const grid = document.getElementById('records-grid');
+
+    RECORDS.forEach((rec, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      
+      const qrId = 'qrcode-' + idx;
+
+      card.innerHTML = `
+        <div class="header ${rec.stateClass}">
+          <div>
+            <h3 style="margin:0; font-size:16px;">${rec.state} Land Record</h3>
+            <span style="font-size:11px; opacity:0.9;">${rec.portal}</span>
+          </div>
+          <span class="badge">${rec.langBadge}</span>
+        </div>
+        <div class="body">
+          <div class="qr-box" id="${qrId}"></div>
+          <div class="details">
+            <div class="row"><span class="label">Farmer Name:</span><span class="val">${rec.farmer}</span></div>
+            <div class="row"><span class="label">Khasra / Gat No:</span><span class="val font-mono">${rec.khasra}</span></div>
+            <div class="row"><span class="label">Location:</span><span class="val">${rec.village}</span></div>
+            <div class="row"><span class="label">Crop Enrolled:</span><span class="val">${rec.crop}</span></div>
+            <div class="row"><span class="label">Total Area:</span><span class="val">${rec.area}</span></div>
+          </div>
+        </div>
+      `;
+
+      grid.appendChild(card);
+
+      new QRCode(document.getElementById(qrId), {
+        text: JSON.stringify(rec.payload),
+        width: 150,
+        height: 150,
+        colorDark : "#0f172a",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.M
+      });
+    });
+  </script>
+</body>
+</html>

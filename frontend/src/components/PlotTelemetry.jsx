@@ -1,0 +1,168 @@
+import React, { useState, useEffect } from 'react';
+import { Activity, Droplets, Leaf } from 'lucide-react';
+
+// Circular gauge component
+const CircularGauge = ({ value, max, label, unit, color, icon: Icon }) => {
+  const percentage = (value / max) * 100;
+  const circumference = 2 * Math.PI * 45; // radius = 45
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-32 h-32">
+        {/* Background Circle */}
+        <svg className="transform -rotate-90 w-32 h-32">
+          <circle
+            cx="64"
+            cy="64"
+            r="45"
+            stroke="#e5e7eb"
+            strokeWidth="8"
+            fill="none"
+          />
+          {/* Progress Circle */}
+          <circle
+            cx="64"
+            cy="64"
+            r="45"
+            stroke={color}
+            strokeWidth="8"
+            fill="none"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            className="transition-all duration-500"
+          />
+        </svg>
+        {/* Center Content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <Icon className="w-6 h-6 text-gray-600 mb-1" />
+          <span className="text-2xl font-bold text-gray-900">
+            {value.toFixed(2)}
+          </span>
+          <span className="text-xs text-gray-500">{unit}</span>
+        </div>
+      </div>
+      <p className="mt-3 text-sm font-medium text-gray-700">{label}</p>
+    </div>
+  );
+};
+
+// Status indicator component
+const StatusIndicator = ({ label, status, description }) => {
+  const statusColors = {
+    normal: 'bg-green-500',
+    warning: 'bg-orange-500',
+    critical: 'bg-red-500',
+  };
+
+  return (
+    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
+      <div className={`w-3 h-3 rounded-full ${statusColors[status]} mt-1`}></div>
+      <div>
+        <p className="font-semibold text-gray-900">{label}</p>
+        <p className="text-sm text-gray-600">{description}</p>
+      </div>
+    </div>
+  );
+};
+
+const PlotTelemetry = () => {
+  // Mock telemetry data - will be replaced with satellite/IoT data later
+  const [telemetry, setTelemetry] = useState({
+    ndvi: 0.72, // Normalized Difference Vegetation Index (0.0 - 1.0)
+    sarFloodInundation: 0.15, // SAR Flood Inundation (0.0 - 1.0)
+    soilMoisture: 0.65, // Soil moisture (0.0 - 1.0)
+  });
+
+  // Simulate real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTelemetry((prev) => ({
+        ndvi: Math.max(0, Math.min(1, prev.ndvi + (Math.random() - 0.5) * 0.05)),
+        sarFloodInundation: Math.max(0, Math.min(1, prev.sarFloodInundation + (Math.random() - 0.5) * 0.03)),
+        soilMoisture: Math.max(0, Math.min(1, prev.soilMoisture + (Math.random() - 0.5) * 0.04)),
+      }));
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Determine status based on telemetry
+  const getFloodStatus = () => {
+    if (telemetry.sarFloodInundation > 0.5) return { status: 'critical', desc: 'High flood risk detected' };
+    if (telemetry.sarFloodInundation > 0.25) return { status: 'warning', desc: 'Moderate flood risk' };
+    return { status: 'normal', desc: 'No flood detected' };
+  };
+
+  const getVegetationStatus = () => {
+    if (telemetry.ndvi < 0.3) return { status: 'critical', desc: 'Poor vegetation health' };
+    if (telemetry.ndvi < 0.5) return { status: 'warning', desc: 'Below optimal health' };
+    return { status: 'normal', desc: 'Healthy vegetation' };
+  };
+
+  const floodStatus = getFloodStatus();
+  const vegetationStatus = getVegetationStatus();
+
+  return (
+    <div className="bg-white rounded-xl shadow-md p-6">
+      {/* Header */}
+      <div className="flex items-center space-x-2 mb-6">
+        <Activity className="w-6 h-6 text-primary" />
+        <h2 className="text-xl font-bold text-gray-900">Plot Telemetry & Monitoring</h2>
+      </div>
+
+      {/* Gauges */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <CircularGauge
+          value={telemetry.ndvi}
+          max={1.0}
+          label="NDVI"
+          unit="/1.0"
+          color="#10b981"
+          icon={Leaf}
+        />
+        <CircularGauge
+          value={telemetry.sarFloodInundation}
+          max={1.0}
+          label="Flood Inundation"
+          unit="/1.0"
+          color="#3b82f6"
+          icon={Droplets}
+        />
+        <CircularGauge
+          value={telemetry.soilMoisture}
+          max={1.0}
+          label="Soil Moisture"
+          unit="/1.0"
+          color="#8b5cf6"
+          icon={Activity}
+        />
+      </div>
+
+      {/* Status Indicators */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Status Alerts</h3>
+        <StatusIndicator
+          label="Flood Risk Assessment"
+          status={floodStatus.status}
+          description={floodStatus.desc}
+        />
+        <StatusIndicator
+          label="Vegetation Health"
+          status={vegetationStatus.status}
+          description={vegetationStatus.desc}
+        />
+      </div>
+
+      {/* Info Footer */}
+      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <p className="text-sm text-blue-800">
+          <span className="font-semibold">Data Source:</span> Satellite imagery (Sentinel-2 for NDVI, Sentinel-1 SAR for flood detection). Updates every 3 seconds (simulated).
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default PlotTelemetry;

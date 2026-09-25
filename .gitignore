@@ -5,11 +5,37 @@ __pycache__/
 venv/
 .venv/
 *.egg-info/
+*.pyc
+.pytest_cache/
+
+# Node modules
+/node_modules
+frontend/node_modules
+
+# Compilation / build output
+/dist
+/bundle
+frontend/dist
+
+# Hardhat Build Artifacts
+/artifacts
+/cache
+/types
+/coverage
+/.gas-snapshot
+/snapshots
 
 # Environment secrets — NEVER commit these
 .env
+.env.*
+!.env.example
 agent/config/.env
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
-# Compiled / cache
-*.pyc
-.pytest_cache/
+# Temp build & clone folders
+/temp_repo
+/github_repo
+/hardhat-project
+/apnileap_test
