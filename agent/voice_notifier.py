@@ -302,18 +302,20 @@ class VoiceNotifier:
         payout_inr: float,
         damage_pct: float,
         disaster_type: str = "Flood",
-        language: str = "hindi",
+        language: str = "auto",
+        document: Optional[Union[str, Path]] = None,
+        location: Optional[str] = None,
+        geojson: Optional[Union[dict, str]] = None,
     ) -> Optional[str]:
         """
         Place a REAL phone call to the farmer via Twilio.
-
-        The farmer's phone rings immediately. When they pick up, they hear
-        a natural AI voice in their regional language confirming the payout.
+        Automatically selects the regional language based on uploaded land document,
+        location name (e.g. Assam -> Assamese, Bihar -> Bhojpuri), or coordinates.
 
         Parameters
         ----------
         to_phone_number : str
-            Farmer's phone number in E.164 format (e.g., "+919876543210").
+            Farmer's phone number in E.164 format (e.g., "+917483799325").
         farmer_name : str
             Farmer's name for personalized message.
         payout_inr : float
@@ -323,37 +325,99 @@ class VoiceNotifier:
         disaster_type : str
             "Flood" | "Drought" | "Heatwave"
         language : str
-            "hindi" | "assamese" | "bhojpuri" | "english"
+            "auto" | "hindi" | "assamese" | "bhojpuri" | "english"
+        document : str | Path, optional
+            Uploaded government land document path or raw document text.
+        location : str, optional
+            Region/location name (e.g. "Majuli, Assam", "Darbhanga, Bihar").
+        geojson : dict | str, optional
+            Plot GPS coordinates for geo-fenced language selection.
 
         Returns
         -------
         str : Twilio Call SID if successful, None if failed/mock mode.
         """
+        # Fallback to configured target phone number if dummy or empty
+        env_to = os.getenv("TWILIO_TO_PHONE_NUMBER", "").strip()
+        if (not to_phone_number or "+919999999999" in to_phone_number) and env_to:
+            to_phone_number = env_to
+
+        # Automatic Regional Language Detection
+        detected_region = location or "Default"
+        if language == "auto" or language not in TEMPLATES:
+            try:
+                from document_parser import extractor as doc_extractor
+            except ImportError:
+                try:
+                    from agent.document_parser import extractor as doc_extractor
+                except ImportError:
+                    doc_extractor = None
+
+            if doc_extractor:
+                detect_res = doc_extractor.detect_language(document=document, location=location, geojson=geojson)
+                language = detect_res["language"]
+                detected_region = detect_res.get("region", location or "Detected Region")
+                logger.info(
+                    "🌐  Auto-Detected Language: \033[92m%s\033[0m for Region: %s (Source: %s, Conf: %.2f)",
+                    language.upper(), detected_region, detect_res.get("source"), detect_res.get("confidence", 0.0),
+                )
+            else:
+                language = "hindi"
+
         twiml = self._build_twiml(farmer_name, payout_inr, damage_pct, disaster_type, language)
 
         if not self.twilio_configured or self._twilio_client is None:
             logger.info(
                 "📞  MOCK CALL (Twilio not configured):\n"
-                "    To      : %s\n"
-                "    Farmer  : %s\n"
-                "    Payout  : ₹%s\n"
-                "    Damage  : %.0f%%\n"
-                "    TwiML   : %s",
-                to_phone_number, farmer_name,
+                "    To       : %s\n"
+                "    Farmer   : %s\n"
+                "    Language : %s (%s)\n"
+                "    Payout   : ₹%s\n"
+                "    Damage   : %.0f%%\n"
+                "    TwiML    : %s",
+                to_phone_number, farmer_name, language.upper(), detected_region,
                 f"{payout_inr:,.0f}", damage_pct, twiml[:100],
             )
             return f"MOCK_CALL_SID_{farmer_name.replace(' ', '_')}"
 
         try:
             import urllib.parse
-            # Custom spoken message text in Hindi
-            spoken_text = (
-                f"Namaste {farmer_name} ji! "
-                f"AgriTrust AI Satellite ne aapke khet mein {damage_pct:.0f} percent "
-                f"{disaster_type} damage confirm kiya hai. "
-                f"Rupaye {payout_inr:,.0f} ka rahat bhugtaan aapke bank khate mein bheja gaya hai. "
-                f"Dhanyavaad!"
-            )
+            lang_key = language.lower()
+
+            # Dynamic Spoken Text strictly localized by detected regional dialect
+            if lang_key == "assamese":
+                spoken_text = (
+                    f"Namaste {farmer_name} da! "
+                    f"AgriTrust AI Satellite-e aapunar khetot {damage_pct:.0f} percent "
+                    f"{disaster_type} khotikhoya nischit koriche. "
+                    f"Rupiah {payout_inr:,.0f} takaar sahayota payment aapunar bank account-ot pothiaai dia hoise. "
+                    f"Dhanyabad!"
+                )
+            elif lang_key == "bhojpuri":
+                spoken_text = (
+                    f"Pranam {farmer_name} bhaiya! "
+                    f"AgriTrust AI Satellite hamar khet par {damage_pct:.0f} percent "
+                    f"{disaster_type} nuksaan confirm karke ba. "
+                    f"Rupaya {payout_inr:,.0f} ke rahat bhugtaan aapan bank mein bhej dihal gail ba. "
+                    f"Dhanyavad!"
+                )
+            elif lang_key == "english":
+                spoken_text = (
+                    f"Hello {farmer_name} ji! "
+                    f"AgriTrust AI Satellite has confirmed {damage_pct:.0f} percent "
+                    f"{disaster_type} damage on your farm plot. "
+                    f"A relief payout of rupees {payout_inr:,.0f} has been transferred to your bank account. "
+                    f"Thank you!"
+                )
+            else:  # Hindi or default
+                spoken_text = (
+                    f"Namaste {farmer_name} ji! "
+                    f"AgriTrust AI Satellite ne aapke khet mein {damage_pct:.0f} percent "
+                    f"{disaster_type} damage confirm kiya hai. "
+                    f"Rupaye {payout_inr:,.0f} ka rahat bhugtaan aapke bank khate mein bhej diya gaya hai. "
+                    f"Dhanyavaad!"
+                )
+
             encoded_msg = urllib.parse.quote(spoken_text)
             twimlet_url = f"https://twimlets.com/message?Message%5B0%5D={encoded_msg}"
 
@@ -367,9 +431,11 @@ class VoiceNotifier:
                 "    Call SID : %s\n"
                 "    To       : %s\n"
                 "    Farmer   : %s\n"
+                "    Language : %s (%s)\n"
                 "    Payout   : ₹%s\n"
                 "    Status   : %s",
                 call.sid, to_phone_number, farmer_name,
+                language.upper(), detected_region,
                 f"{payout_inr:,.0f}", call.status,
             )
             return call.sid
@@ -395,6 +461,11 @@ class VoiceNotifier:
         Sends an SMS receipt to the farmer. On Twilio Trial accounts (which restrict 
         unapproved international SMS to +91), logs a clean simulated SMS receipt.
         """
+        # Fallback to configured target phone number if dummy or empty
+        env_to = os.getenv("TWILIO_TO_PHONE_NUMBER", "").strip()
+        if (not to_phone_number or "+919999999999" in to_phone_number) and env_to:
+            to_phone_number = env_to
+
         sms_text = (
             f"🌾 AgriTrust AI Relief Alert!\n"
             f"Namaste {farmer_name} ji,\n"
@@ -448,14 +519,21 @@ class VoiceNotifier:
         payout_inr: float,
         damage_pct: float,
         disaster_type: str = "Flood",
-        language: str = "hindi",
+        language: str = "auto",
+        document: Optional[Union[str, Path]] = None,
+        location: Optional[str] = None,
+        geojson: Optional[Union[dict, str]] = None,
         tx_hash: str = "0x8f3a91bc24ef10",
     ) -> dict[str, Optional[str]]:
         """
         Automatically dispatches BOTH live voice call AND text message notification
         the moment an MST Smart Contract payout executes on-chain.
+        Auto-detects regional language from uploaded document or location.
         """
-        logger.info("⚡  AUTOMATED PAYOUT DISPATCH INITIATED FOR %s (%s)...", farmer_name, to_phone_number)
+        logger.info(
+            "⚡  AUTOMATED PAYOUT DISPATCH INITIATED FOR %s (%s) [Loc: %s, Lang: %s]...",
+            farmer_name, to_phone_number, location or "N/A", language.upper()
+        )
         
         call_sid = self.trigger_live_voice_call(
             to_phone_number=to_phone_number,
@@ -464,6 +542,9 @@ class VoiceNotifier:
             damage_pct=damage_pct,
             disaster_type=disaster_type,
             language=language,
+            document=document,
+            location=location,
+            geojson=geojson,
         )
 
         sms_sid = self.send_sms_notification(

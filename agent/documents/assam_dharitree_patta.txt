@@ -1,0 +1,19 @@
+GOVERNMENT OF ASSAM
+REVENUE & DISASTER MANAGEMENT DEPARTMENT
+DHARITREE LAND RECORDS PORTAL
+------------------------------------------------------------
+District       : Majuli
+Sub-Division   : Majuli (Garigaon)
+Revenue Circle : Majuli Circle
+Mouza          : Salmora
+Village        : Kamalabari
+Patta Number   : Periodic Patta No. 104 / 2024
+Dag Number     : Dag No. 892 / 12
+Land Class     : Sali Paddy Crop (Agricultural Land)
+Total Area     : 5 Bigha, 2 Katha, 10 Lessa
+Pattadar / Owner Name: Prasanta Kalita
+Father's Name        : Late Biren Kalita
+Status         : Enrolled under AgriTrust AI Parametric Flood Shield
+Brahmaputra Flood Risk Zone: High Vulnerability Sector 4
+Lat Mandal Certification Verified: Circle Officer Majuli, Assam
+------------------------------------------------------------

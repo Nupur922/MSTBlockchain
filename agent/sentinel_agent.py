@@ -302,6 +302,7 @@ class SentinelAgent:
                 }),
                 "acreage": 3, "cropType": "RICE", "enrolled": True,
                 "farmerName": "Ram Singh", "location": "Darbhanga, Bihar",
+                "document": "agent/documents/bihar_bhumi_khatiyan.txt",
             },
             {
                 "id": 2, "owner": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
@@ -313,6 +314,7 @@ class SentinelAgent:
                 }),
                 "acreage": 5, "cropType": "RICE", "enrolled": True,
                 "farmerName": "Prasanta Kalita", "location": "Majuli, Assam",
+                "document": "agent/documents/assam_dharitree_patta.txt",
             },
         ]
 
@@ -327,6 +329,7 @@ class SentinelAgent:
         location  = plot.get("location", f"Plot {plot_id}")
         crop_type = plot.get("cropType", "UNKNOWN")
         farmer    = plot.get("farmerName", f"Farmer #{plot_id}")
+        plot_doc  = plot.get("document") or plot.get("document_path")
 
         logger.info(
             "\n┌─────────────────────────────────────────────────────┐\n"
@@ -418,19 +421,25 @@ class SentinelAgent:
                     logger.warning("⚠️  PDF generation failed: %s", pdf_exc)
                     cert_path = None
 
-                # ── V2: Trigger Live Twilio Voice Call ───────────────────
+                # ── V2: Trigger Live Twilio Voice Call & Automated Alert ──
                 try:
-                    call_sid = self._voice.trigger_live_voice_call(
+                    alert_res = self._voice.trigger_automated_payout_alert(
                         to_phone_number=farmer_phone,
                         farmer_name=farmer,
                         payout_inr=payout_mst,
                         damage_pct=consensus.verified_damage_pct,
                         disaster_type="Flood",
-                        language="hindi",
+                        language="auto",
+                        document=plot_doc,
+                        location=location,
+                        geojson=geojson,
+                        tx_hash=tx_hash or "0xDEMO_PAYOUT_TX",
                     )
-                    logger.info("📞  \033[92mTwilio Call SID: %s\033[0m", call_sid)
+                    call_sid = alert_res.get("call_sid")
+                    sms_sid  = alert_res.get("sms_sid")
+                    logger.info("📞  \033[92mTwilio Call SID: %s | SMS SID: %s\033[0m", call_sid, sms_sid)
                 except Exception as call_exc:
-                    logger.warning("⚠️  Twilio call failed: %s", call_exc)
+                    logger.warning("⚠️  Twilio alert failed: %s", call_exc)
 
                 # ── V2: NDWI Drought check ────────────────────────────────
                 try:
