@@ -193,7 +193,7 @@ MSTBlockchain/
 ├── package.json                      # Root npm scripts
 ├── .env.example                      # Root environment template
 ├── VERSION1_README.md                # Version 1.0 architecture archive
-└── VERSION2_README.md                # Dedicated Version 2.0 specification
+└── VERSION2_README.md                # This Version 2.0 specification
 ```
 
 ---
