@@ -31,8 +31,12 @@ from typing import Any, Optional
 
 import requests
 from dotenv import load_dotenv
-from oauthlib.oauth2 import BackendApplicationClient
-from requests_oauthlib import OAuth2Session
+try:
+    from oauthlib.oauth2 import BackendApplicationClient
+    from requests_oauthlib import OAuth2Session
+except ImportError:
+    BackendApplicationClient = None
+    OAuth2Session = None
 
 # ---------------------------------------------------------------------------
 # Load .env
