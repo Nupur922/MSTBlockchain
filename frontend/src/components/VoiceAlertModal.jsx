@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, Volume2, VolumeX, X } from 'lucide-react';
+import { Phone, Volume2, VolumeX, X, FileText } from 'lucide-react';
 import { detectStateFromCoords, getPhoneticMessage, getNativeTranscript } from '../utils/stateLanguageMap';
 
 const buildMessages = (payoutAmount, plotId, stateName, coordinates) => {
@@ -23,12 +23,12 @@ const buildMessages = (payoutAmount, plotId, stateName, coordinates) => {
     },
     {
       lang: 'en-IN',
-      text: `AgriTrust AI Emergency Alert. Your farm plot number ${plotId} has been affected by flooding. Emergency insurance payout of ${payoutAmount} Ethereum has been triggered automatically. Please visit your nearest AePS centre.`,
+      text: `AgriTrust AI Emergency Alert. Your farm plot number ${plotId} has been affected by a verified satellite disaster event. Emergency insurance payout of ${payoutAmount} MST Tokens has been triggered automatically. Please visit your nearest AePS centre.`,
     }
   ];
 };
 
-const VoiceAlertModal = ({ isOpen, onClose, payoutAmount, plotId, stateName, coordinates }) => {
+const VoiceAlertModal = ({ isOpen, onClose, onOpenPDF, payoutAmount, plotId, stateName, coordinates }) => {
   const [callDuration, setCallDuration]   = useState(0);
   const [isMuted, setIsMuted]             = useState(false);
   const [speechStatus, setSpeechStatus]   = useState('idle');
@@ -226,19 +226,31 @@ const VoiceAlertModal = ({ isOpen, onClose, payoutAmount, plotId, stateName, coo
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <p className="font-semibold text-blue-800 mb-1">🔵 English — Tertiary</p>
               <p className="italic leading-relaxed">
-                "Your farm Plot #{plotId} has been flood-affected. Emergency payout of{' '}
-                <strong>{payoutAmount} ETH</strong> has been triggered automatically.
+                "Your farm Plot #{plotId} has been disaster-affected (satellite verified). Emergency payout of{' '}
+                <strong>{payoutAmount} MST</strong> has been triggered automatically.
                 Please visit your nearest AePS centre with Aadhaar."
               </p>
             </div>
           </div>
         </div>
 
-        {/* ── End call button ── */}
-        <div className="bg-white px-5 pb-5 pt-3">
+        {/* ── Action buttons: PDF Evidence & End Call ── */}
+        <div className="bg-white px-5 pb-5 pt-3 space-y-2">
+          {onOpenPDF && (
+            <button
+              onClick={() => {
+                handleEndCall();
+                onOpenPDF();
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white py-2.5 rounded-full font-semibold text-xs transition-all flex items-center justify-center space-x-2 shadow-md"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Download Disaster Audit Certificate (PDF Evidence)</span>
+            </button>
+          )}
           <button
             onClick={handleEndCall}
-            className="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white py-3.5 rounded-full font-bold transition-all flex items-center justify-center space-x-2 shadow-lg"
+            className="w-full bg-red-500 hover:bg-red-600 active:scale-95 text-white py-3 rounded-full font-bold transition-all flex items-center justify-center space-x-2 shadow-lg"
           >
             <Phone className="w-5 h-5 rotate-[135deg]" />
             <span>End Call</span>
