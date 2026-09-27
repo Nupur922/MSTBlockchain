@@ -1,6 +1,9 @@
 {
   "name": "MSTBlockchain",
   "version": "1.0.0",
+  "scripts": {
+    "start": ".\\start_all.bat"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "@types/node": "^22.20.4",
