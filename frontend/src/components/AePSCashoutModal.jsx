@@ -59,7 +59,7 @@ const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, plotId, farmerAddress
         };
 
         setProgress(50);
-        setStatusMessage('Touch the fingerprint sensor on your phone or device now...');
+        setStatusMessage('Select "Use a phone or tablet" in browser prompt & touch your phone sensor...');
 
         // This triggers the real system / Android / iOS fingerprint modal!
         const credential = await navigator.credentials.create({ publicKey });
