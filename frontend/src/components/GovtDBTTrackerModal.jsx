@@ -18,26 +18,90 @@ export default function GovtDBTTrackerModal({ isOpen, onClose }) {
 
     setIsSearching(true);
     setTimeout(() => {
+      const q = searchQuery.toUpperCase();
+
+      // Determine which farmer record to return based on ARN keywords
+      let farmerData;
+
+      if (q.includes('ASSAM') || q.includes('PATTA') || q.includes('992014')) {
+        // Assam — Prasanta Kalita, Majuli
+        farmerData = {
+          applicationId: 'PMFBY-MST-2026-992014',
+          farmerName: 'Prasanta Kalita',
+          aadhaarMasked: 'XXXX-XXXX-4412',
+          state: 'Assam',
+          district: 'Majuli',
+          block: 'Majuli Sadar',
+          panchayat: 'Kamalabari Gram Panchayat',
+          khasraNumber: 'Patta #104/B (1.8 Acres)',
+          cropType: 'Sali Paddy (Rice)',
+          insuredAmountINR: '₹35,000',
+          payoutAmountINR: '₹17,500',
+          dbtRrn: 'IPPB-RRN-9920140041',
+          disasterType: 'Brahmaputra River Monsoon Flood (6 Days Submerged)',
+        };
+      } else if (q.includes('MAHA') || q.includes('381920')) {
+        // Maharashtra — Eknath Patil, Nashik
+        farmerData = {
+          applicationId: 'PMFBY-MST-2026-381920',
+          farmerName: 'Eknath Patil',
+          aadhaarMasked: 'XXXX-XXXX-7734',
+          state: 'Maharashtra',
+          district: 'Nashik / Marathwada',
+          block: 'Niphad',
+          panchayat: 'Panchavati Gram Panchayat',
+          khasraNumber: '7/12 Extract #88/2 (3.2 Acres)',
+          cropType: 'Grapes / Onion',
+          insuredAmountINR: '₹35,000',
+          payoutAmountINR: '₹17,500',
+          dbtRrn: 'IPPB-RRN-3819200088',
+          disasterType: 'Marathwada Flash Drought (NDWI Soil Moisture Deficit -0.45)',
+        };
+      } else if (q.includes('PUNJAB') || q.includes('HEATWAVE') || q.includes('448120')) {
+        // Punjab — Gurpreet Singh, Ludhiana
+        farmerData = {
+          applicationId: 'PMFBY-MST-2026-448120',
+          farmerName: 'Gurpreet Singh',
+          aadhaarMasked: 'XXXX-XXXX-5567',
+          state: 'Punjab',
+          district: 'Ludhiana',
+          block: 'Samrala',
+          panchayat: 'Khangarh Gram Panchayat',
+          khasraNumber: 'Jamabandi #45/1 (4.0 Acres)',
+          cropType: 'Wheat',
+          insuredAmountINR: '₹28,000',
+          payoutAmountINR: '₹14,000',
+          dbtRrn: 'IPPB-RRN-4481200045',
+          disasterType: 'Scorching Wheat Heatwave (44.2°C Thermal LST)',
+        };
+      } else {
+        // Default / Bihar — Ram Singh, Darbhanga
+        farmerData = {
+          applicationId: q.includes('BHUMI') || q.includes('883921') ? searchQuery.toUpperCase() : 'PMFBY-MST-2026-883921',
+          farmerName: 'Ram Singh',
+          aadhaarMasked: 'XXXX-XXXX-8821',
+          state: 'Bihar',
+          district: 'Darbhanga',
+          block: 'Darbhanga Sadar',
+          panchayat: 'Kakarghatti Gram Panchayat',
+          khasraNumber: 'Khatiyan Plot #214/A (2.5 Acres)',
+          cropType: 'Paddy (Rice)',
+          insuredAmountINR: '₹50,000',
+          payoutAmountINR: '₹25,000',
+          dbtRrn: 'IPPB-RRN-9920148839',
+          disasterType: 'Kosi River Monsoon Flood (9 Days Submerged)',
+        };
+      }
+
       const mockResult = {
-        applicationId: searchQuery.toUpperCase().includes('BHUMI') ? searchQuery : 'PMFBY-MST-2026-883921',
-        farmerName: 'Ram Singh',
-        aadhaarMasked: 'XXXX-XXXX-8821',
-        state: 'Bihar',
-        district: 'Darbhanga',
-        block: 'Darbhanga Sadar',
-        panchayat: 'Kakarghatti Gram Panchayat',
-        khasraNumber: 'Plot #214/A (2.5 Acres)',
-        cropType: 'Paddy (Rice)',
-        insuredAmountINR: '₹50,000',
-        payoutAmountINR: '₹25,000',
+        ...farmerData,
         payoutStatus: 'DBT_CREDIT_DISBURSED',
-        dbtRrn: 'IPPB-RRN-9920148839',
-        disasterType: 'Kosi River Monsoon Flood (6 Days Submerged)',
         satelliteConsensus: '2-of-3 NEWRRO AI Oracle Consensus Verified',
         eip191Proof: '0xabc123def4567890abcdef1234567890abcdef1234567890abcdef1234567890',
         mstTxHash: '0x9f8e7d6c5b4a3928374650192837465019283746501928374650192837465019',
-        verificationDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        verificationDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
       };
+
       setSearchResult(mockResult);
       setIsSearching(false);
     }, 800);
@@ -126,6 +190,20 @@ export default function GovtDBTTrackerModal({ isOpen, onClose }) {
                 className="bg-gray-100 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-200 text-gray-500 hover:text-emerald-700 text-xs rounded-full px-3 py-1 cursor-pointer transition-all font-mono"
               >
                 ASSAM-PATTA-2026-992014
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('MAHA-712-2026-381920')}
+                className="bg-gray-100 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-200 text-gray-500 hover:text-emerald-700 text-xs rounded-full px-3 py-1 cursor-pointer transition-all font-mono"
+              >
+                MAHA-712-2026-381920
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickFill('PUNJAB-HEATWAVE-2026-448120')}
+                className="bg-gray-100 hover:bg-emerald-50 border border-gray-200 hover:border-emerald-200 text-gray-500 hover:text-emerald-700 text-xs rounded-full px-3 py-1 cursor-pointer transition-all font-mono"
+              >
+                PUNJAB-HEATWAVE-2026-448120
               </button>
             </div>
           </form>

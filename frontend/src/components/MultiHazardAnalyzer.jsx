@@ -95,7 +95,11 @@ export default function MultiHazardAnalyzer({ activeTelemetry }) {
       {/* Grid of 3 Telemetry Gauges */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Gauge 1: Sentinel-1 SAR Flood Inundation */}
-        <div className={`rounded-xl p-4 border transition-all ${
+        <div className={`rounded-xl p-4 border transition-all duration-300 ${
+          selectedHazard === 'ALL' || selectedHazard === 'FLOOD'
+            ? 'opacity-100 scale-100'
+            : 'opacity-40 scale-95'
+        } ${
           isFlooded
             ? 'bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-300 shadow-sm'
             : 'bg-gray-50 border border-gray-100'
@@ -132,7 +136,11 @@ export default function MultiHazardAnalyzer({ activeTelemetry }) {
         </div>
 
         {/* Gauge 2: Sentinel-2 NDWI Soil Moisture Index */}
-        <div className={`rounded-xl p-4 border transition-all ${
+        <div className={`rounded-xl p-4 border transition-all duration-300 ${
+          selectedHazard === 'ALL' || selectedHazard === 'DROUGHT'
+            ? 'opacity-100 scale-100'
+            : 'opacity-40 scale-95'
+        } ${
           isDrought
             ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 shadow-sm'
             : 'bg-gray-50 border border-gray-100'
@@ -169,7 +177,11 @@ export default function MultiHazardAnalyzer({ activeTelemetry }) {
         </div>
 
         {/* Gauge 3: Thermal LST Land Surface Temperature */}
-        <div className={`rounded-xl p-4 border transition-all ${
+        <div className={`rounded-xl p-4 border transition-all duration-300 ${
+          selectedHazard === 'ALL' || selectedHazard === 'HEATWAVE'
+            ? 'opacity-100 scale-100'
+            : 'opacity-40 scale-95'
+        } ${
           isHeatwave
             ? 'bg-gradient-to-br from-rose-50 to-red-50 border-2 border-rose-300 shadow-sm'
             : 'bg-gray-50 border border-gray-100'

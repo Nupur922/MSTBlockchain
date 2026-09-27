@@ -38,13 +38,15 @@ const Header = () => {
               <span>GOVERNMENT OF INDIA</span>
             </span>
             <span className="text-gray-300">|</span>
-            <span className="text-gray-500">MINISTRY OF AGRICULTURE &amp; FARMERS WELFARE</span>
+            <span className="text-gray-500">MINISTRY OF AGRICULTURE</span>
+            <span className="text-gray-300">|</span>
+            <span className="text-emerald-700 font-bold">PMFBY DIRECT BENEFIT TRANSFER (DBT) ESCROW PORTAL</span>
           </div>
 
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-1.5 text-emerald-600 font-semibold">
               <PhoneCall className="w-3 h-3" />
-              <span>Kisan Help Centre: <strong>14447</strong></span>
+              <span>Toll-Free Kisan Help Centre: <strong>14447</strong></span>
             </div>
             <span className="text-gray-300">|</span>
             <button
@@ -77,7 +79,7 @@ const Header = () => {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Parametric Crop Insurance &amp; Direct Benefit Transfer (DBT) Escrow Portal
+                  Parametric Crop Insurance &amp; Instant Satellite Disaster Relief Escrow on MST Blockchain
                 </p>
               </div>
             </div>
