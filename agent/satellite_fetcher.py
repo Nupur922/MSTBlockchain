@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import math
 import os
 import random
 import time
@@ -357,6 +358,16 @@ class Sentinel2Client:
             red_val  = float(_mean("red"))
             nir_val  = float(_mean("nir"))
 
+            # The Copernicus statistics endpoint can return nulls (→ NaN) when a
+            # tile is fully clouded/nodata. NaN would poison the consensus math
+            # (NDVI=nan → damage=nan), so treat it as a failed fetch.
+            if not all(math.isfinite(v) for v in (ndvi_val, red_val, nir_val)):
+                raise ValueError(
+                    f"Non-finite Sentinel-2 stats (NDVI={ndvi_val}, RED={red_val}, NIR={nir_val})"
+                )
+            if not -1.0 <= ndvi_val <= 1.0:
+                raise ValueError(f"Sentinel-2 NDVI out of range: {ndvi_val}")
+
             # Estimate cloud coverage from noDataCount / sampleCount
             stats_obj = latest.get("outputs", {}).get("ndvi", {}).get("bands", {}).get("B0", {}).get("stats", {})
             sample_count = stats_obj.get("sampleCount", 1) or 1
@@ -527,7 +538,10 @@ class Sentinel1SARClient:
                 )
                 mean_db = stats.get("mean")
                 if mean_db is not None and stats.get("sampleCount", 0) > 0:
-                    db_series.append(round(float(mean_db), 3))
+                    value = float(mean_db)
+                    if not math.isfinite(value):
+                        continue  # nodata tile → skip rather than poison the series
+                    db_series.append(round(value, 3))
                     dates.append(acq.get("interval", {}).get("from", "N/A")[:10])
 
             if not db_series:

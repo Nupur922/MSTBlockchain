@@ -267,7 +267,7 @@ export default function MultiHazardAnalyzer({ activeTelemetry }) {
           </div>
           <div className="flex items-center space-x-2 flex-shrink-0">
             <span className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white font-black text-sm rounded-xl shadow-md">
-              {(payout_ratio * 50).toFixed(1)} MST Token Payout
+              {(payout_ratio * 40000).toFixed(0)} MST Payout (₹{(payout_ratio * 40000).toLocaleString('en-IN')})
             </span>
           </div>
         </div>

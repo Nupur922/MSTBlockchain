@@ -525,7 +525,10 @@ def t17_scenario_bihar_flood():
 def t18_sentinel_agent_demo_mode():
     from sentinel_agent import SentinelAgent
 
-    agent = SentinelAgent()  # No RPC, no key, no contract addresses
+    # Force demo mode: point at a port that is always closed so the test stays
+    # deterministic whether or not a local Hardhat node is running (otherwise a
+    # live node would feed real/simulated satellite data into this assertion).
+    agent = SentinelAgent(rpc_url="http://127.0.0.1:19999")
     results = agent.run_once()
 
     assert isinstance(results, list), "run_once should return list"
@@ -535,7 +538,13 @@ def t18_sentinel_agent_demo_mode():
         assert hasattr(r, "plot_id")
         assert hasattr(r, "ndvi_value")
         assert hasattr(r, "consensus_approved")
-        assert -1.0 <= r.ndvi_value <= 1.0 or r.error is not None
+        if r.error is None:
+            # NaN would silently pass neither `-1 <= x <= 1` nor `is not None`,
+            # so require a finite NDVI whenever the cycle reported success.
+            import math
+            assert r.ndvi_value is not None and math.isfinite(r.ndvi_value) and -1.0 <= r.ndvi_value <= 1.0, (
+                f"plot {r.plot_id}: invalid NDVI {r.ndvi_value!r} without an error"
+            )
         # TX hash in demo mode should be a string or None
         if r.tx_hash:
             assert isinstance(r.tx_hash, str)

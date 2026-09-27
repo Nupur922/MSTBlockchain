@@ -116,6 +116,8 @@ contract AgriTrustVault is AccessControl, ReentrancyGuard, Pausable {
 
         Policy storage policy = policies[policyId];
         require(policy.isActive, "Policy is not active");
+        // Parametric payout can never exceed the underwritten sum insured for the plot
+        require(payoutAmountMST <= policy.insuredAmountMST, "Payout exceeds insured sum");
 
         // 1. Construct proof hash
         bytes32 proofHash = keccak256(
@@ -152,6 +154,34 @@ contract AgriTrustVault is AccessControl, ReentrancyGuard, Pausable {
      */
     function getVaultBalance() external view returns (uint256) {
         return address(this).balance;
+    }
+
+    /**
+     * @dev V2.0 alias used by the AI Oracle agent (sentinel_agent.py) to check
+     * available escrow liquidity before submitting a payout transaction.
+     */
+    function getEscrowBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    /**
+     * @dev V2.0: Read the underwritten policy attached to a plot so the oracle
+     * can cap the parametric payout at the insured sum.
+     */
+    function getPolicyForPlot(uint256 plotId)
+        external
+        view
+        returns (
+            uint256 policyId,
+            address farmerWallet,
+            uint256 insuredAmountMST,
+            bool isActive
+        )
+    {
+        uint256 id = plotToPolicyId[plotId];
+        if (id == 0) return (0, address(0), 0, false);
+        Policy storage p = policies[id];
+        return (id, p.farmerWallet, p.insuredAmountMST, p.isActive);
     }
 
     /**

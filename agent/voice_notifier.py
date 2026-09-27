@@ -28,7 +28,7 @@ import os
 import platform
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from dotenv import load_dotenv
 
@@ -69,6 +69,11 @@ TEMPLATES: dict[str, dict[str, str]] = {
             "NDWI moisture index critical level par hai. "
             "Rupaye {payout_inr:,.0f} ka sukha rahat bhugtaan aapke bank mein bheja ja raha hai."
         ),
+        "heatwave": (
+            "{farmer} ji, satellite ne aapke khet par garmi ki lahar confirm ki hai. "
+            "Bhoomi ka taapman uchch sthar par pahunch gaya hai. "
+            "Rupaye {payout_inr:,.0f} ka garmi rahat bhugtaan aapke bank mein bheja ja raha hai."
+        ),
     },
     "assamese": {
         "disaster": (
@@ -87,6 +92,11 @@ TEMPLATES: dict[str, dict[str, str]] = {
             "{farmer} da, satellite-e aapunar khetot {dry_days} din sukha confirm koriche. "
             "NDWI moisture index critical. "
             "Rupiah {payout_inr:,.0f} takaar sukha sahayota aapunar bank-ot pathiaai dia hoise."
+        ),
+        "heatwave": (
+            "{farmer} da, satellite-e aapunar khetot taap prahar confirm koriche. "
+            "Bhumir taapman bhishan uchch. "
+            "Rupiah {payout_inr:,.0f} takaar garmi sahayota aapunar bank-ot pathiaai dia hoise."
         ),
     },
     "bhojpuri": {
@@ -107,6 +117,11 @@ TEMPLATES: dict[str, dict[str, str]] = {
             "NDWI moisture critical level par ba. "
             "Rupaya {payout_inr:,.0f} ke sukha rahat aapan bank mein pathawat ba."
         ),
+        "heatwave": (
+            "{farmer} bhaiya, satellite hamar khet par garmi ke lahar confirm karke ba. "
+            "Dharti ke taapman bahut jyada ba. "
+            "Rupaya {payout_inr:,.0f} ke garmi rahat aapan bank mein pathawat ba."
+        ),
     },
     "english": {
         "disaster": (
@@ -122,6 +137,11 @@ TEMPLATES: dict[str, dict[str, str]] = {
             "{farmer} ji, satellite has confirmed {dry_days} days of drought on your plot. "
             "NDWI moisture index is at critical level. "
             "A drought relief payout of rupees {payout_inr:,.0f} has been sent to your bank."
+        ),
+        "heatwave": (
+            "{farmer} ji, satellite has confirmed a severe heatwave event on your plot. "
+            "Land Surface Temperature has exceeded safe crop thresholds. "
+            "A heatwave relief payout of rupees {payout_inr:,.0f} has been sent to your bank."
         ),
     },
 }
@@ -241,8 +261,10 @@ class VoiceNotifier:
 
         if not approved:
             alert_type = "healthy"
-        elif disaster_type.lower() == "drought":
+        elif disaster_type.lower() in ("drought", "flash_drought", "sukha", "kharang"):
             alert_type = "drought"
+        elif disaster_type.lower() in ("heatwave", "scorching_heatwave", "heat", "garmi"):
+            alert_type = "heatwave"
         else:
             alert_type = "disaster"
 
@@ -431,12 +453,19 @@ class VoiceNotifier:
 
             # Disaster term localization
             disaster_lower = (disaster_type or "flood").lower()
-            if "drought" in disaster_lower or "sukha" in disaster_lower:
+            if "drought" in disaster_lower or "sukha" in disaster_lower or "kharang" in disaster_lower:
                 dis_terms = {
                     "assamese": "kharang",
                     "bhojpuri": "sukha",
                     "hindi": "sukha",
                     "english": "drought",
+                }
+            elif "heat" in disaster_lower or "heatwave" in disaster_lower or "garmi" in disaster_lower:
+                dis_terms = {
+                    "assamese": "taap prahar",
+                    "bhojpuri": "garmi",
+                    "hindi": "garmi ki lahar",
+                    "english": "heatwave",
                 }
             else:
                 dis_terms = {

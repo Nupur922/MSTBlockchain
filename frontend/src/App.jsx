@@ -19,6 +19,33 @@ import { getAgriTrustVaultContract } from './utils/web3';
 const HARDHAT_RPC_URL              = 'http://127.0.0.1:8545';
 const EVENT_LISTENER_RETRY_MS      = 8000;
 
+// ── V2.0 shared demo constants (mirror agent/scenario_simulator.py) ─────────
+/** Sum insured per plot in MST/INR — 1 MST ≡ ₹1 on the local demo chain. */
+export const INSURED_SUM_INR = 40000;
+
+/** District HQ used to phrase the live voice call ("Majuli, Assam", …). */
+const STATE_CITY = {
+  Assam: 'Majuli',
+  Bihar: 'Darbhanga',
+  Maharashtra: 'Nashik',
+  Punjab: 'Ludhiana',
+  Karnataka: 'Mandya',
+  'Tamil Nadu': 'Thanjavur',
+  Gujarat: 'Anand',
+  'West Bengal': 'Burdwan',
+};
+
+/** Map a hazard flag from the telemetry widget to the notifier's disaster type. */
+const toDisasterType = (hazard = '') => {
+  const h = String(hazard).toUpperCase();
+  if (h.includes('DROUGHT')) return 'Drought';
+  if (h.includes('HEAT')) return 'Heatwave';
+  return 'Flood';
+};
+
+const randomTxHash = () =>
+  '0x' + Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+
 function App() {
   // ── Scenario / map state ──────────────────────────────────────────────────
   const [activeScenario,  setActiveScenario]  = useState(null);
@@ -36,12 +63,29 @@ function App() {
     hazard_type: "NONE"
   });
 
+  // Mirror of the latest telemetry so the bridge call always carries the
+  // numbers currently shown on screen (damage %, payout ratio, hazard type).
+  const telemetryRef = useRef({
+    ndvi_score: 0.75,
+    sar_backscatter_db: -10.5,
+    days_submerged: 0,
+    ndwi_score: -0.12,
+    lst_temp_c: 28.5,
+    status: "HEALTHY_GROWING_CROP",
+    payout_ratio: 0.0,
+    hazard_type: "NONE"
+  });
+
+  // ── Web-to-Call bridge feedback (Twilio voice + UltraMsg WhatsApp) ─────────
+  const [bridgeStatus, setBridgeStatus] = useState(null);
+
   // ── Payout event data (populated from on-chain or demo) ───────────────────
   const [payoutEvent, setPayoutEvent] = useState({
     policyId:      null,
     plotId:        null,
     farmer:        null,
     payoutAmount:  null,   // ETH string
+    payoutInr:     null,   // ₹ relief settled (1 MST ≡ ₹1)
     proofHash:     null,
     timestamp:     null,
   });
@@ -93,6 +137,7 @@ function App() {
             plotId:       plotId.toString(),
             farmer,
             payoutAmount: ethers.formatEther(payoutAmountMST),
+            payoutInr:    Number(ethers.formatEther(payoutAmountMST)),
             proofHash:    proofHash,
             timestamp:    Number(timestamp),
           });
@@ -124,10 +169,54 @@ function App() {
 
   // ─── Multi-Hazard Scenario Handler ───────────────────────────────────────
 
+  /** Keeps React state AND telemetryRef in sync so dispatch payloads match the UI. */
+  const applyTelemetry = useCallback((telemetry) => {
+    telemetryRef.current = telemetry;
+    setActiveTelemetry(telemetry);
+  }, []);
+
+  /**
+   * V2.0 Web-to-Call bridge: POSTs the live scenario telemetry to
+   * agent/bridge_server.py (port 8000), which places a real Twilio PSTN call
+   * in the farmer's dialect and sends an UltraMsg WhatsApp receipt.
+   */
+  const dispatchBridgeAlert = useCallback(async (payload) => {
+    const controller = typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+      ? AbortSignal.timeout(20000)
+      : undefined;
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/trigger-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller,
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.status === 'success') {
+        setBridgeStatus({
+          ok: true,
+          text: `📞 Live PSTN call & WhatsApp dispatched to ${data.target_phone} in ${String(data.language).toUpperCase()}`
+                + ` — ₹${Number(data.payout_inr || 0).toLocaleString('en-IN')} relief (${data.damage_pct}% damage verified)`,
+        });
+      } else if (data.status === 'skipped' || data.status === 'rejected') {
+        setBridgeStatus({ ok: false, text: `🚫 ${data.reason || 'No payout dispatch for this scenario.'}` });
+      } else {
+        setBridgeStatus({ ok: false, text: `⚠️ Bridge response: ${data.message || 'dispatch not confirmed'}` });
+      }
+    } catch (err) {
+      setBridgeStatus({
+        ok: false,
+        text: '⚠️ Voice bridge offline (port 8000) — run start_all.bat to place the live Twilio call & WhatsApp receipt.',
+      });
+    }
+    setTimeout(() => setBridgeStatus(null), 12000);
+  }, []);
+
   const handleTriggerScenario = useCallback(async (scenarioId) => {
     if (scenarioId === 'reset') {
       setActiveScenario(null);
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.75,
         sar_backscatter_db: -10.5,
         days_submerged: 0,
@@ -149,35 +238,35 @@ function App() {
       mockAmount = '0.5';
       mockPlotId = '1';
       stateName = 'Assam';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.28,
         sar_backscatter_db: -22.4,
         days_submerged: 6,
         ndwi_score: 0.35,
         lst_temp_c: 24.0,
         status: "CRITICAL_FLOOD_SUBMERSION",
-        payout_ratio: 0.70,
+        payout_ratio: 0.65,
         hazard_type: "MONSOON_FLOOD"
       });
     } else if (scenarioId === 'bihar-flood') {
       mockAmount = '0.75';
       mockPlotId = '2';
       stateName = 'Bihar';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.18,
         sar_backscatter_db: -24.1,
         days_submerged: 9,
         ndwi_score: 0.45,
         lst_temp_c: 25.5,
-        status: "TOTAL_CROP_DESTRUCTION",
-        payout_ratio: 1.00,
+        status: "SEVERE_FLOOD_SUBMERSION",
+        payout_ratio: 0.50,
         hazard_type: "MONSOON_FLOOD"
       });
     } else if (scenarioId === 'maharashtra-drought') {
       mockAmount = '0.50';
       mockPlotId = '3';
       stateName = 'Maharashtra';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.32,
         sar_backscatter_db: -8.5,
         days_submerged: 0,
@@ -191,7 +280,7 @@ function App() {
       mockAmount = '0.40';
       mockPlotId = '4';
       stateName = 'Punjab';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.42,
         sar_backscatter_db: -9.0,
         days_submerged: 0,
@@ -205,7 +294,7 @@ function App() {
       mockAmount = '0.70';
       mockPlotId = '5';
       stateName = 'Karnataka';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.25,
         sar_backscatter_db: -18.2,
         days_submerged: 5,
@@ -219,7 +308,7 @@ function App() {
       mockAmount = '0.75';
       mockPlotId = '6';
       stateName = 'Tamil Nadu';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.20,
         sar_backscatter_db: -11.0,
         days_submerged: 0,
@@ -233,7 +322,7 @@ function App() {
       mockAmount = '0.00';
       mockPlotId = '7';
       stateName = 'Bihar';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.15,
         sar_backscatter_db: -8.0,
         days_submerged: 0,
@@ -248,7 +337,7 @@ function App() {
       mockAmount = '0.00';
       mockPlotId = '8';
       stateName = 'Assam';
-      setActiveTelemetry({
+      applyTelemetry({
         ndvi_score: 0.55,
         sar_backscatter_db: -7.5,
         days_submerged: 0,
@@ -261,27 +350,35 @@ function App() {
       return; // No payout modal for fraud
     }
 
+    const telemetry = telemetryRef.current;
+    const reliefInr = Math.round(INSURED_SUM_INR * (telemetry.payout_ratio || 0));
+
     setPayoutEvent({
       policyId:     '1',
       plotId:       mockPlotId,
       farmer:       '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       payoutAmount: mockAmount,
+      payoutInr:    reliefInr,
       proofHash:    null,
       timestamp:    Math.floor(Date.now() / 1000),
       stateName:    stateName,
     });
 
-    // Live Twilio phone call + WhatsApp dispatched via bridge server
+    // V2.0: Live Twilio PSTN call + UltraMsg WhatsApp dispatched via bridge server
     setShowAePS(true);
 
-    try {
-      fetch('http://127.0.0.1:8000/api/trigger-call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenario: scenarioId }),
-      }).catch(() => {});
-    } catch (_) {}
-  }, []);
+    dispatchBridgeAlert({
+      scenario:    scenarioId,
+      plotId:      mockPlotId,
+      state:       stateName,
+      location:    `${STATE_CITY[stateName] || stateName}, ${stateName}`,
+      damagePct:   Math.round((telemetry.payout_ratio || 0) * 100),
+      payoutRatio: telemetry.payout_ratio || 0,
+      payoutInr:   reliefInr,
+      disasterType: toDisasterType(telemetry.hazard_type),
+      txHash:      randomTxHash(),
+    });
+  }, [applyTelemetry, dispatchBridgeAlert]);
 
   const handlePlotScanned = useCallback((plotData) => {
     setQrScannedPlot(plotData);
@@ -331,6 +428,7 @@ function App() {
         isOpen={showAePS}
         onClose={() => setShowAePS(false)}
         payoutAmount={payoutEvent.payoutAmount}
+        payoutInr={payoutEvent.payoutInr}
         plotId={payoutEvent.plotId}
         farmerAddress={payoutEvent.farmer}
       />
@@ -354,6 +452,27 @@ function App() {
       {/* ── Dashboard Main ── */}
       <main className="container mx-auto px-4 py-8 space-y-8">
         <DemoControlPanel onTriggerScenario={handleTriggerScenario} />
+
+        {/* ── V2.0 Web-to-Call bridge feedback (Twilio PSTN + UltraMsg WhatsApp) ── */}
+        {bridgeStatus && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm font-medium flex items-start justify-between gap-3 ${
+              bridgeStatus.ok
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}
+            role="status"
+          >
+            <span>{bridgeStatus.text}</span>
+            <button
+              onClick={() => setBridgeStatus(null)}
+              className="text-xs font-bold opacity-60 hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <StatCards />
 
         {/* V3 Multi-Hazard Analyzer Widget */}

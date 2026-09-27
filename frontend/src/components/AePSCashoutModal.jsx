@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Fingerprint, CheckCircle, Building2, X, User, Smartphone, Key, ShieldCheck, AlertCircle } from 'lucide-react';
 
-const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, plotId, farmerAddress }) => {
+const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, payoutInr, plotId, farmerAddress }) => {
   const [step, setStep] = useState(0); // 0: Select / Prompt, 1: Scanning, 2: Verifying, 3: Success
   const [progress, setProgress] = useState(0);
   const [authMethod, setAuthMethod] = useState('biometric'); // 'biometric' (WebAuthn / Mobile Fingerprint)
   const [hardwareDetected, setHardwareDetected] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Please place your thumb on your mobile fingerprint sensor');
   const [authError, setAuthError] = useState(null);
+
+  // V2.0: prefer the ₹ figure settled on-chain / spoken on the live call so the
+  // farmer sees EXACTLY the amount announced by Twilio & WhatsApp.
+  const reliefInr = payoutInr != null && !Number.isNaN(Number(payoutInr))
+    ? Number(payoutInr)
+    : Math.round((parseFloat(payoutAmount || '0.75')) * 250000);
 
   useEffect(() => {
     if (isOpen) {
@@ -277,11 +283,11 @@ const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, plotId, farmerAddress
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-gray-800">Cash Disbursed:</span>
                     <span className="font-bold text-green-700 text-base">
-                      ₹{((parseFloat(payoutAmount || '0.75')) * 250000).toLocaleString('en-IN')}
+                      ₹{reliefInr.toLocaleString('en-IN')}
                     </span>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-0.5">
-                    Converted from {payoutAmount || '0.75'} ETH relief fund
+                    Escrow settled {payoutAmount || '—'} MST on-chain (1 MST ≡ ₹1)
                   </p>
                 </div>
               </div>

@@ -78,6 +78,11 @@ const CROP_TYPES = [
 
 const STEP = { FORM: 'form', CONFIRMING: 'confirming', SUCCESS: 'success', ERROR: 'error' };
 
+const INDIAN_STATES = [
+  'Assam', 'Bihar', 'Maharashtra', 'Punjab', 'Karnataka', 'Tamil Nadu',
+  'Gujarat', 'West Bengal', 'Uttar Pradesh', 'Rajasthan', 'Odisha', 'Kerala',
+];
+
 const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   const [step, setStep] = useState(STEP.FORM);
 
@@ -86,6 +91,12 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   const [cropType,     setCropType]     = useState('Paddy (Rice)');
   const [acreageStr,   setAcreageStr]   = useState('');   // e.g. "2.5" acres
   const [geoJson,      setGeoJson]      = useState('');
+
+  // V2.0: government land-record identifiers (7/12 RoR / Bhu-Naksha)
+  const [khasraNo,   setKhasraNo]   = useState('');
+  const [khataNo,    setKhataNo]    = useState('');
+  const [stateName,  setStateName]  = useState('Bihar');
+  const [districtName, setDistrictName] = useState('');
 
   // Result
   const [txHash,   setTxHash]   = useState('');
@@ -100,7 +111,8 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   };
   const isValidAcreage = (s) => !isNaN(parseFloat(s)) && parseFloat(s) > 0;
 
-  const canSubmit = isValidAddress(farmerWallet) && isValidGeoJson(geoJson) && isValidAcreage(acreageStr);
+  const canSubmit = isValidAddress(farmerWallet) && isValidGeoJson(geoJson) && isValidAcreage(acreageStr)
+    && khasraNo.trim().length > 0 && stateName.trim().length > 0;
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -122,12 +134,17 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
       // acreage is stored ×100 in Solidity (e.g. 2.5 acres → 250)
       const acreageScaled = Math.round(parseFloat(acreageStr) * 100);
 
-      // ✅ Janaki's real function: registerFarmPlot(ownerWallet, polygonGeoJSON, acreage, cropType)
+      // V2.0: registerFarmPlot(ownerWallet, polygonGeoJSON, acreage, cropType,
+      //                        khasraNumber, khataNumber, stateName, districtName)
       const tx = await contract.registerFarmPlot(
         farmerWallet,
         geoJson,
         acreageScaled,
         cropType,
+        khasraNo.trim(),
+        khataNo.trim() || 'N/A',
+        stateName.trim(),
+        districtName.trim() || stateName.trim(),
       );
 
       setTxHash(tx.hash);
@@ -149,7 +166,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
       setStep(STEP.SUCCESS);
 
       // Notify parent to refresh map
-      if (onEnrolled) onEnrolled({ plotId: newPlotId, farmerWallet, cropType, geoJson });
+      if (onEnrolled) onEnrolled({ plotId: newPlotId, farmerWallet, cropType, geoJson, khasraNumber: khasraNo, khataNumber: khataNo, stateName, districtName });
 
     } catch (err) {
       console.warn('Live RPC enrollment note:', err.message);
@@ -165,7 +182,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
         setPlotId(mockPlotId);
         setStep(STEP.SUCCESS);
 
-        if (onEnrolled) onEnrolled({ plotId: mockPlotId, farmerWallet, cropType, geoJson });
+        if (onEnrolled) onEnrolled({ plotId: mockPlotId, farmerWallet, cropType, geoJson, khasraNumber: khasraNo, khataNumber: khataNo, stateName, districtName });
         return;
       }
 
@@ -182,6 +199,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   const handleClose = () => {
     setStep(STEP.FORM);
     setFarmerWallet(''); setCropType('Paddy (Rice)'); setAcreageStr(''); setGeoJson('');
+    setKhasraNo(''); setKhataNo(''); setStateName('Bihar'); setDistrictName('');
     setTxHash(''); setPlotId(null); setErrMsg('');
     onClose();
   };
@@ -278,6 +296,55 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                 <p className="text-xs text-gray-400 mt-1">Stored as ×100 in Solidity (e.g. 2.5 acres → 250)</p>
               </div>
 
+              {/* ── V2.0: Government land record (7/12 RoR / Bhu-Naksha) ── */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Government Land Record <span className="text-gray-400 font-normal">(7/12 RoR / Bhu-Naksha)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={khasraNo}
+                      onChange={e => setKhasraNo(e.target.value)}
+                      placeholder="Khasra / Gat / Survey No. *"
+                      className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={khataNo}
+                      onChange={e => setKhataNo(e.target.value)}
+                      placeholder="Khata / Khatiyan No."
+                      className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
+                    />
+                  </div>
+                  <div>
+                    <select
+                      value={stateName}
+                      onChange={e => setStateName(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
+                    >
+                      {INDIAN_STATES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={districtName}
+                      onChange={e => setDistrictName(e.target.value)}
+                      placeholder="District / Tehsil *"
+                      className="w-full px-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Committed on-chain via <code className="bg-gray-100 px-1 rounded">FarmRegistry.registerFarmPlot()</code> —
+                  the <strong>State</strong> drives the regional voice dialect (Assamese / Bhojpuri / Hindi).
+                </p>
+              </div>
+
               {/* GeoJSON */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -293,7 +360,11 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setGeoJson(p.geoJson)}
+                      onClick={() => {
+                        setGeoJson(p.geoJson);
+                        setStateName(p.state);
+                        setDistrictName(p.label.split(',')[0]);
+                      }}
                       className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs rounded-lg transition-colors font-medium flex items-center space-x-1"
                     >
                       <span className="font-semibold text-emerald-900">{p.state}:</span>

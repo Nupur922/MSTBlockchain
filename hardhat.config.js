@@ -42,6 +42,16 @@ const config = {
     },
   },
   networks: {
+    hardhat: {
+      // 5,000,000 MST per demo account so the escrow vault can be seeded with
+      // realistic disaster-relief liquidity (500,000 MST) on every deploy —
+      // even repeated ones — while payouts cap at the 40,000 MST sum insured.
+      accounts: {
+        count: 20,
+        accountsBalance: '5000000000000000000000000',
+      },
+      chainId: 31337,
+    },
     localhost: {
       url: 'http://127.0.0.1:8545',
       chainId: 31337,

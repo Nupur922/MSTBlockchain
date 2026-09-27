@@ -20,6 +20,11 @@ contract FarmRegistry is AccessControl {
         string cropType;       // e.g. "Paddy (Rice)"
         bool isEnrolled;
         uint256 registeredAt;
+        // ── V2.0: Government land-record identifiers (7/12 RoR, Bhu-Naksha, Khasra/Khata) ──
+        string khasraNumber;   // Khasra / Gat / Survey / Dag number
+        string khataNumber;    // Khata / Khatiyan / Record-of-Rights account number
+        string stateName;      // Indian state (drives regional dialect voice dispatch)
+        string districtName;   // District / Tehsil of the land parcel
     }
 
     uint256 private _plotCounter;
@@ -31,7 +36,9 @@ contract FarmRegistry is AccessControl {
         address indexed ownerWallet,
         string cropType,
         uint256 acreage,
-        uint256 registeredAt
+        uint256 registeredAt,
+        string khasraNumber,
+        string stateName
     );
 
     constructor(address adminAddress, address initialKrishiMitra) {
@@ -47,16 +54,23 @@ contract FarmRegistry is AccessControl {
     /**
      * @dev Register a new farm plot on MST Blockchain.
      * Restricted to authorized Krishi Mitras / CSC operators scanning land record QR codes.
+     * V2.0: also commits the government land-record identifiers (Khasra, Khata, State, District).
      */
     function registerFarmPlot(
         address ownerWallet,
         string memory polygonGeoJSON,
         uint256 acreage,
-        string memory cropType
+        string memory cropType,
+        string memory khasraNumber,
+        string memory khataNumber,
+        string memory stateName,
+        string memory districtName
     ) external onlyRole(KRISHI_MITRA_ROLE) returns (uint256) {
         require(ownerWallet != address(0), "Invalid farmer wallet address");
         require(bytes(polygonGeoJSON).length > 0, "Polygon coordinates required");
         require(acreage > 0, "Acreage must be greater than zero");
+        require(bytes(khasraNumber).length > 0, "Khasra number required");
+        require(bytes(stateName).length > 0, "State name required");
 
         uint256 plotId = ++_plotCounter;
         plots[plotId] = FarmPlot({
@@ -66,13 +80,36 @@ contract FarmRegistry is AccessControl {
             acreage: acreage,
             cropType: cropType,
             isEnrolled: true,
-            registeredAt: block.timestamp
+            registeredAt: block.timestamp,
+            khasraNumber: khasraNumber,
+            khataNumber: khataNumber,
+            stateName: stateName,
+            districtName: districtName
         });
 
         farmerPlots[ownerWallet].push(plotId);
 
-        emit FarmPlotRegistered(plotId, ownerWallet, cropType, acreage, block.timestamp);
+        emit FarmPlotRegistered(plotId, ownerWallet, cropType, acreage, block.timestamp, khasraNumber, stateName);
         return plotId;
+    }
+
+    /**
+     * @dev V2.0: Read the government land-record identifiers for an enrolled plot.
+     */
+    function getPlotLandRecord(uint256 plotId)
+        external
+        view
+        returns (
+            string memory khasraNumber,
+            string memory khataNumber,
+            string memory stateName,
+            string memory districtName,
+            string memory polygonGeoJSON
+        )
+    {
+        require(plots[plotId].isEnrolled, "Plot not enrolled");
+        FarmPlot storage p = plots[plotId];
+        return (p.khasraNumber, p.khataNumber, p.stateName, p.districtName, p.polygonGeoJSON);
     }
 
     /**
@@ -81,6 +118,15 @@ contract FarmRegistry is AccessControl {
     function getFarmPlot(uint256 plotId) external view returns (FarmPlot memory) {
         require(plots[plotId].isEnrolled, "Plot not enrolled");
         return plots[plotId];
+    }
+
+    /**
+     * @dev Returns total number of registered farm plots.
+     * V2.0 alias kept for the AI Oracle agent (sentinel_agent.py) which reads
+     * `getEnrolledPlotCount()` — every registered plot is enrolled.
+     */
+    function getEnrolledPlotCount() external view returns (uint256) {
+        return _plotCounter;
     }
 
     /**
