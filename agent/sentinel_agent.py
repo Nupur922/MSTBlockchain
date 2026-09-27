@@ -23,6 +23,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+# ── V2.0: load agent credentials (ORACLE_PRIVATE_KEY, MST_RPC_URL, …) ────────
+# Root .env first, then agent/config/.env (spec location) — the latter wins.
+try:
+    from dotenv import load_dotenv as _load_dotenv
+
+    _AGENT_DIR = Path(__file__).resolve().parent
+    _load_dotenv(_AGENT_DIR.parent / ".env")
+    _load_dotenv(_AGENT_DIR / "config" / ".env")
+except Exception:  # pragma: no cover - dotenv is optional
+    pass
+
 # ---------------------------------------------------------------------------
 # Logging — coloured console output for demo visibility
 # ---------------------------------------------------------------------------
@@ -46,15 +57,46 @@ FARM_REGISTRY_ABI = [
         "type": "function",
     },
     {
+        # Solidity returns a single dynamic struct, so the payload is prefixed
+        # with an outer offset word. Declaring it as ONE tuple output keeps
+        # eth-abi in sync with the on-chain encoding (a flat list of the 11
+        # fields would shift every pointer by one word and fail to decode).
         "inputs": [{"internalType": "uint256", "name": "plotId", "type": "uint256"}],
         "name": "getFarmPlot",
         "outputs": [
-            {"internalType": "uint256", "name": "id",             "type": "uint256"},
-            {"internalType": "address", "name": "ownerWallet",    "type": "address"},
-            {"internalType": "string",  "name": "polygonGeoJSON", "type": "string"},
-            {"internalType": "uint256", "name": "acreage",        "type": "uint256"},
-            {"internalType": "string",  "name": "cropType",       "type": "string"},
-            {"internalType": "bool",    "name": "isEnrolled",     "type": "bool"},
+            {
+                "internalType": "struct FarmRegistry.FarmPlot",
+                "name": "",
+                "type": "tuple",
+                "components": [
+                    {"internalType": "uint256", "name": "id",             "type": "uint256"},
+                    {"internalType": "address",  "name": "ownerWallet",    "type": "address"},
+                    {"internalType": "string",   "name": "polygonGeoJSON", "type": "string"},
+                    {"internalType": "uint256",  "name": "acreage",        "type": "uint256"},
+                    {"internalType": "string",   "name": "cropType",       "type": "string"},
+                    {"internalType": "bool",     "name": "isEnrolled",     "type": "bool"},
+                    {"internalType": "uint256",  "name": "registeredAt",   "type": "uint256"},
+                    {"internalType": "string",   "name": "khasraNumber",   "type": "string"},
+                    {"internalType": "string",   "name": "khataNumber",    "type": "string"},
+                    {"internalType": "string",   "name": "stateName",      "type": "string"},
+                    {"internalType": "string",   "name": "districtName",   "type": "string"},
+                ],
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        # Returns five separate strings (not a struct) → the payload is the
+        # plain tuple head of five offsets, so these stay as flat outputs.
+        "inputs": [{"internalType": "uint256", "name": "plotId", "type": "uint256"}],
+        "name": "getPlotLandRecord",
+        "outputs": [
+            {"internalType": "string", "name": "khasraNumber",   "type": "string"},
+            {"internalType": "string", "name": "khataNumber",    "type": "string"},
+            {"internalType": "string", "name": "stateName",      "type": "string"},
+            {"internalType": "string", "name": "districtName",   "type": "string"},
+            {"internalType": "string", "name": "polygonGeoJSON", "type": "string"},
         ],
         "stateMutability": "view",
         "type": "function",
@@ -62,6 +104,25 @@ FARM_REGISTRY_ABI = [
 ]
 
 AGRI_VAULT_ABI = [
+    {
+        # Inherited from OpenZeppelin AccessControl — used to assert that the
+        # oracle wallet really holds ORACLE_ROLE before signing a payout proof.
+        "inputs": [
+            {"internalType": "bytes32", "name": "role",    "type": "bytes32"},
+            {"internalType": "address",  "name": "account", "type": "address"},
+        ],
+        "name": "hasRole",
+        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "ORACLE_ROLE",
+        "outputs": [{"internalType": "bytes32", "name": "", "type": "bytes32"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
     {
         "inputs": [
             {"internalType": "uint256", "name": "plotId",       "type": "uint256"},
@@ -78,6 +139,25 @@ AGRI_VAULT_ABI = [
         "inputs": [],
         "name": "getEscrowBalance",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "getVaultBalance",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "plotId", "type": "uint256"}],
+        "name": "getPolicyForPlot",
+        "outputs": [
+            {"internalType": "uint256", "name": "policyId",        "type": "uint256"},
+            {"internalType": "address",  "name": "farmerWallet",   "type": "address"},
+            {"internalType": "uint256",  "name": "insuredAmountMST", "type": "uint256"},
+            {"internalType": "bool",     "name": "isActive",       "type": "bool"},
+        ],
         "stateMutability": "view",
         "type": "function",
     },
@@ -149,19 +229,38 @@ class SentinelAgent:
         oracle_private_key: Optional[str]  = None,
         farm_registry_address: Optional[str] = None,
         vault_address: Optional[str]         = None,
-        rpc_url: str                         = DEFAULT_RPC_URL,
-        chain_id: int                        = DEFAULT_CHAIN_ID,
+        rpc_url: Optional[str]               = None,
+        chain_id: Optional[int]              = None,
         poll_interval: int                   = POLL_INTERVAL_SECONDS,
         config_dir: Optional[str]            = None,
     ):
-        self.rpc_url       = rpc_url
-        self.chain_id      = chain_id
+        # V2.0: .env (MST_RPC_URL / MST_CHAIN_ID) beats the hardcoded defaults
+        self.rpc_url       = rpc_url  or os.getenv("MST_RPC_URL")   or DEFAULT_RPC_URL
+        self.chain_id      = chain_id or int(os.getenv("MST_CHAIN_ID") or DEFAULT_CHAIN_ID)
         self.poll_interval = poll_interval
 
         # Load addresses from config file if not provided
         cfg = self._load_config(config_dir)
-        self.farm_registry_address = farm_registry_address or cfg.get("FarmRegistry")
-        self.vault_address         = vault_address         or cfg.get("AgriTrustVault")
+
+        def _valid(addr: Optional[str]) -> Optional[str]:
+            """Ignore blank / all-zero placeholder addresses from .env.example."""
+            if not addr:
+                return None
+            a = str(addr).strip()
+            if not a.startswith("0x") or len(a) != 42 or set(a[2:]) == {"0"}:
+                return None
+            return a
+
+        self.farm_registry_address = (
+            _valid(farm_registry_address)
+            or _valid(cfg.get("FarmRegistry"))
+            or _valid(os.getenv("FARM_REGISTRY_ADDRESS"))
+        )
+        self.vault_address = (
+            _valid(vault_address)
+            or _valid(cfg.get("AgriTrustVault"))
+            or _valid(os.getenv("AGRI_TRUST_VAULT_ADDRESS"))
+        )
 
         # Private key: env var > constructor arg > Hardhat demo key
         pk = oracle_private_key or os.environ.get("ORACLE_PRIVATE_KEY")
@@ -190,7 +289,9 @@ class SentinelAgent:
 
         try:
             from proof_signer import EIP191ProofSigner
-            self._signer = EIP191ProofSigner(private_key=pk)
+            # V2.0: bind the deployed AgriTrustVault address into every proof so
+            # the payload matches `abi.encodePacked(..., address(this))` on-chain.
+            self._signer = EIP191ProofSigner(private_key=pk, vault_address=self.vault_address)
             oracle_addr = self._signer.address
         except Exception:
             self._signer = None
@@ -300,10 +401,39 @@ class SentinelAgent:
     # Plot data fetching
     # ------------------------------------------------------------------
 
+    # Demo-only farmer identity map (voice dispatch uses these names)
+    _DEMO_FARMERS = {
+        ("assam", "majuli"): "Prasanta Kalita",
+        ("bihar", "darbhanga"): "Ram Singh",
+    }
+
+    @classmethod
+    def _farmer_name_for(cls, state_name: str, district_name: str, owner: str) -> str:
+        state = state_name.strip().lower()
+        district = district_name.strip().lower()
+        if (state, district) in cls._DEMO_FARMERS:
+            return cls._DEMO_FARMERS[(state, district)]
+        for (known_state, _), name in cls._DEMO_FARMERS.items():
+            if known_state == state:
+                return name
+        return f"Farmer {owner[:10]}"
+
+    def _default_phone(self) -> str:
+        return (
+            os.getenv("TWILIO_VERIFIED_TO_NUMBER")
+            or os.getenv("TWILIO_TO_PHONE_NUMBER")
+            or os.getenv("FARMER_PHONE_NUMBER")
+            or "+917483799325"
+        ).strip()
+
     def _get_enrolled_plots(self) -> list[dict]:
         """
         Return list of enrolled plot dicts from FarmRegistry.sol.
         Falls back to demo plots when node is offline.
+
+        V2.0: the registry now carries the government land-record identifiers
+        (Khasra, Khata, State, District) that drive the PDF certificate and the
+        regional-dialect voice dispatch.
         """
         if self._farm_registry:
             try:
@@ -311,37 +441,36 @@ class SentinelAgent:
                 plots = []
                 for i in range(1, count + 1):
                     raw = self._farm_registry.functions.getFarmPlot(i).call()
+                    # Defensive indexing: tolerate both V1 (6) and V2 (11) layouts
+                    khasra    = raw[7] if len(raw) > 7 else ""
+                    khata     = raw[8] if len(raw) > 8 else ""
+                    state     = raw[9] if len(raw) > 9 else ""
+                    district  = raw[10] if len(raw) > 10 else ""
+                    owner     = raw[1]
+                    if not raw[5]:
+                        continue
+                    location = ", ".join(x for x in (district, state) if x) or f"Plot {i}"
                     plots.append({
-                        "id": raw[0], "owner": raw[1], "geojson": raw[2],
+                        "id": raw[0], "owner": owner, "geojson": raw[2],
                         "acreage": raw[3], "cropType": raw[4], "enrolled": raw[5],
+                        "registeredAt": raw[6] if len(raw) > 6 else 0,
+                        "khasraNumber": khasra, "khataNumber": khata,
+                        "stateName": state, "districtName": district,
+                        "farmerName": self._farmer_name_for(state, district, owner),
+                        "location": location,
+                        "phoneNumber": self._default_phone(),
                     })
-                return [p for p in plots if p["enrolled"]]
+                logger.info("🌾  Loaded %d enrolled plot(s) from FarmRegistry.sol", len(plots))
+                return plots
             except Exception as exc:
                 logger.warning("⚠️  FarmRegistry call failed (%s), using demo plots.", exc)
 
-        # Demo fallback plots
-        default_phone = (
-            os.getenv("TWILIO_VERIFIED_TO_NUMBER")
-            or os.getenv("TWILIO_TO_PHONE_NUMBER")
-            or os.getenv("FARMER_PHONE_NUMBER")
-            or "+917483799325"
-        ).strip()
+        # Demo fallback plots — kept in the same order as the frontend
+        # Demo Control Panel (plot 1 = Assam Flood, plot 2 = Bihar Flood).
+        default_phone = self._default_phone()
         return [
             {
                 "id": 1, "owner": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-                "geojson": json.dumps({
-                    "type": "Polygon",
-                    "coordinates": [[[85.8977, 26.1234], [85.9123, 26.1234],
-                                     [85.9123, 26.1089], [85.8977, 26.1089],
-                                     [85.8977, 26.1234]]],
-                }),
-                "acreage": 3, "cropType": "RICE", "enrolled": True,
-                "farmerName": "Ram Singh", "location": "Darbhanga, Bihar",
-                "document": "agent/documents/bihar_bhumi_khatiyan.txt",
-                "phoneNumber": default_phone,
-            },
-            {
-                "id": 2, "owner": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
                 "geojson": json.dumps({
                     "type": "Polygon",
                     "coordinates": [[[94.1714, 26.7541], [94.2000, 26.7541],
@@ -350,7 +479,24 @@ class SentinelAgent:
                 }),
                 "acreage": 5, "cropType": "RICE", "enrolled": True,
                 "farmerName": "Prasanta Kalita", "location": "Majuli, Assam",
+                "khasraNumber": "Patta No. 104/B", "khataNumber": "Khata 27/3",
+                "stateName": "Assam", "districtName": "Majuli",
                 "document": "agent/documents/assam_dharitree_patta.txt",
+                "phoneNumber": default_phone,
+            },
+            {
+                "id": 2, "owner": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+                "geojson": json.dumps({
+                    "type": "Polygon",
+                    "coordinates": [[[85.8977, 26.1234], [85.9123, 26.1234],
+                                     [85.9123, 26.1089], [85.8977, 26.1089],
+                                     [85.8977, 26.1234]]],
+                }),
+                "acreage": 2.5, "cropType": "RICE", "enrolled": True,
+                "farmerName": "Ram Singh", "location": "Darbhanga, Bihar",
+                "khasraNumber": "Khasra 312/14-15", "khataNumber": "Khata 214/A",
+                "stateName": "Bihar", "districtName": "Darbhanga",
+                "document": "agent/documents/bihar_bhumi_khatiyan.txt",
                 "phoneNumber": default_phone,
             },
         ]
@@ -420,6 +566,12 @@ class SentinelAgent:
             if consensus.is_approved:
                 payout_fraction = min(1.0, consensus.verified_damage_pct / 100.0)
                 payout_wei = int(MAX_PAYOUT_PER_PLOT_WEI * payout_fraction)
+                # V2.0: never exceed the underwritten sum insured or available escrow
+                payout_wei = min(
+                    payout_wei,
+                    self._insured_sum_wei(plot_id),
+                    self._escrow_balance_wei(),
+                )
 
                 proof = self._signer.sign_disaster_proof(
                     plot_id=plot_id,
@@ -463,6 +615,15 @@ class SentinelAgent:
                         sar_series=sar_data.backscatter_db_series[:6],
                         crop_type=crop_type,
                         farmer_phone=farmer_phone,
+                        # ── V2.0: government land record + cryptographic proof ──
+                        khasra_number=plot.get("khasraNumber", ""),
+                        khata_number=plot.get("khataNumber", ""),
+                        state_name=plot.get("stateName", ""),
+                        district_name=plot.get("districtName", ""),
+                        geojson=plot.get("geojson"),
+                        ecdsa_signature=proof.signature_hex,
+                        oracle_address=proof.signer_address,
+                        vault_address=self.vault_address,
                     )
                     logger.info("📜  \033[92mAudit Certificate generated: %s\033[0m", cert_path)
                 except Exception as pdf_exc:
@@ -525,6 +686,37 @@ class SentinelAgent:
                 consensus_approved=False, damage_pct=0.0, payout_wei=0,
                 error=str(exc),
             )
+
+    # ------------------------------------------------------------------
+    # On-chain policy / escrow guards
+    # ------------------------------------------------------------------
+
+    def _insured_sum_wei(self, plot_id: int) -> int:
+        """
+        Sum insured (policy limit) for the plot in wei.
+        Returns MAX_PAYOUT_PER_PLOT_WEI when the vault is unreachable so the
+        demo pipeline keeps working offline.
+        """
+        if self._vault is None or self._web3 is None:
+            return MAX_PAYOUT_PER_PLOT_WEI
+        try:
+            _, _, insured_wei, is_active = self._vault.functions.getPolicyForPlot(plot_id).call()
+            if not is_active or insured_wei == 0:
+                return MAX_PAYOUT_PER_PLOT_WEI
+            return int(insured_wei)
+        except Exception as exc:
+            logger.debug("Policy lookup failed for plot %d: %s", plot_id, exc)
+            return MAX_PAYOUT_PER_PLOT_WEI
+
+    def _escrow_balance_wei(self) -> int:
+        """Available escrow liquidity in wei (0 ⇒ skip the on-chain attempt)."""
+        if self._vault is None or self._web3 is None:
+            return MAX_PAYOUT_PER_PLOT_WEI
+        try:
+            return int(self._vault.functions.getEscrowBalance().call())
+        except Exception as exc:
+            logger.debug("Escrow balance lookup failed: %s", exc)
+            return MAX_PAYOUT_PER_PLOT_WEI
 
     # ------------------------------------------------------------------
     # On-chain payout execution

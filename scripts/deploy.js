@@ -2,111 +2,167 @@ import hre from 'hardhat';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ROOT = path.join(__dirname, '..');
+
+// Load Oracle credentials so the deployed contract grants ORACLE_ROLE to the
+// exact wallet that agent/sentinel_agent.py signs payouts with.
+dotenv.config({ path: path.join(ROOT, '.env') });
+dotenv.config({ path: path.join(ROOT, 'agent', 'config', '.env') });
+
+/** Resolve the AI Oracle wallet address without ever printing the private key. */
+function resolveOracleAddress(hre) {
+  const pk = (process.env.ORACLE_PRIVATE_KEY || '').trim();
+  if (pk) {
+    try {
+      const addr = new hre.ethers.Wallet(pk.startsWith('0x') ? pk : `0x${pk}`).address;
+      console.log('🔑  ORACLE_PRIVATE_KEY detected — granting ORACLE_ROLE to:', addr);
+      return addr;
+    } catch (err) {
+      console.warn('⚠️   ORACLE_PRIVATE_KEY present but invalid — falling back to Hardhat account #1.');
+    }
+  }
+  return null;
+}
 
 async function main() {
   console.log('=========================================================================');
-  console.log('?? Deploying AgriTrust AI Smart Contracts to MST Blockchain Layer 1...');
+  console.log('🌾 Deploying AgriTrust AI Smart Contracts to MST Blockchain Layer 1...');
   console.log('=========================================================================');
 
-  const [deployer, aiOracleWallet, farmerWallet] = await hre.ethers.getSigners();
+  const signers = await hre.ethers.getSigners();
+  const [deployer, hardhatOracle, farmerWallet] = signers;
 
-  console.log('?? Deployer Wallet (Admin):      ', deployer.address);
-  console.log('?? NEWRRO AI Oracle Wallet:      ', aiOracleWallet ? aiOracleWallet.address : deployer.address);
-  console.log('?? Demo Farmer Wallet:           ', farmerWallet ? farmerWallet.address : deployer.address);
-  console.log('-------------------------------------------------------------------------');
-
-  const oracleAddress = aiOracleWallet ? aiOracleWallet.address : deployer.address;
+  const oracleAddress = resolveOracleAddress(hre) || (hardhatOracle ? hardhatOracle.address : deployer.address);
   const farmerAddress = farmerWallet ? farmerWallet.address : deployer.address;
 
+  console.log('👤 Deployer Wallet (Admin):     ', deployer.address);
+  console.log('🤖 NEWRRO AI Oracle Wallet:     ', oracleAddress);
+  console.log('👨‍🌾 Demo Farmer Wallet:           ', farmerAddress);
+  console.log('-------------------------------------------------------------------------');
+
   // 1. Deploy FarmRegistry
-  console.log('\n1?? Deploying FarmRegistry.sol (Land Parcel & Geofencing Registry)...');
+  console.log('\n1️⃣  Deploying FarmRegistry.sol (Land Parcel, Khasra/Khata & Geofencing Registry)...');
   const FarmRegistry = await hre.ethers.getContractFactory('FarmRegistry');
   const farmRegistry = await FarmRegistry.deploy(deployer.address, deployer.address);
   await farmRegistry.waitForDeployment();
   const registryAddress = await farmRegistry.getAddress();
-  console.log('? FarmRegistry deployed to MST Blockchain at:', registryAddress);
+  console.log('✅ FarmRegistry deployed to MST Blockchain at:', registryAddress);
 
   // 2. Deploy AgriTrustVault
-  console.log('\n2?? Deploying AgriTrustVault.sol (Escrow Vault & Proof Payout Engine)...');
+  console.log('\n2️⃣  Deploying AgriTrustVault.sol (Escrow Vault & EIP-191 Proof Payout Engine)...');
   const AgriTrustVault = await hre.ethers.getContractFactory('AgriTrustVault');
   const vault = await AgriTrustVault.deploy(registryAddress, deployer.address, oracleAddress);
   await vault.waitForDeployment();
   const vaultAddress = await vault.getAddress();
-  console.log('? AgriTrustVault deployed to MST Blockchain at:', vaultAddress);
+  console.log('✅ AgriTrustVault deployed to MST Blockchain at:', vaultAddress);
 
-  // 3. Register Sample Farm Plot (Darbhanga, Bihar Flood Zone)
-  console.log('\n3?? Enrolling Sample Farm Plot (Darbhanga, Bihar - Kosi River Basin)...');
-  const sampleGeoJSON = JSON.stringify({
-    type: 'Polygon',
-    coordinates: [[
-      [85.8971, 26.1522],
-      [85.8985, 26.1525],
-      [85.8982, 26.1510],
-      [85.8968, 26.1508],
-      [85.8971, 26.1522]
-    ]]
-  });
+  // 3. Register sample farm plots WITH government land-record identifiers (V2.0)
+  const samplePlots = [
+    {
+      label: 'Assam Majuli Farm Plot #1 (Brahmaputra Flood Basin)',
+      owner: farmerAddress,
+      geoJSON: {
+        type: 'Polygon',
+        coordinates: [[[94.1714, 26.7541], [94.2000, 26.7541], [94.2000, 26.7300], [94.1714, 26.7300], [94.1714, 26.7541]]],
+      },
+      acreage: 500, // 5.0 acres
+      cropType: 'Paddy (Rice)',
+      khasra: 'Patta No. 104/B',
+      khata: 'Khata 27/3',
+      state: 'Assam',
+      district: 'Majuli',
+      insuredMST: '40000.0',
+    },
+    {
+      label: 'Bihar Darbhanga Farm Plot #2 (Kosi River Flood Basin)',
+      owner: farmerAddress,
+      geoJSON: {
+        type: 'Polygon',
+        coordinates: [[[85.8971, 26.1522], [85.8985, 26.1525], [85.8982, 26.1510], [85.8968, 26.1508], [85.8971, 26.1522]]],
+      },
+      acreage: 250, // 2.5 acres
+      cropType: 'Paddy (Rice)',
+      khasra: 'Khasra 312/14-15',
+      khata: 'Khata 214/A',
+      state: 'Bihar',
+      district: 'Darbhanga',
+      insuredMST: '40000.0',
+    },
+  ];
 
-  const regTx = await farmRegistry.registerFarmPlot(
-    farmerAddress,
-    sampleGeoJSON,
-    250, // 2.5 Acres
-    'Paddy (Rice)'
-  );
-  await regTx.wait();
-  console.log('? Sample Farm Plot #1 registered for Farmer:', farmerAddress);
+  console.log(`\n3️⃣  Enrolling ${samplePlots.length} Sample Farm Plots with Khasra / Khata / State records...`);
+  const insuredAmount = hre.ethers.parseEther('40000.0'); // ₹40,000 sum insured per plot
 
-  // 4. Create Active Policy
-  console.log('\n4?? Creating Active Crop Policy for Plot #1...');
-  const insuredAmount = hre.ethers.parseEther('50.0'); // 50 MST coverage
-  const policyTx = await vault.createPolicy(1, farmerAddress, insuredAmount);
-  await policyTx.wait();
-  console.log('? Policy #1 created for 50.0 MST Coverage!');
+  for (let i = 0; i < samplePlots.length; i++) {
+    const p = samplePlots[i];
+    const regTx = await farmRegistry.registerFarmPlot(
+      p.owner,
+      JSON.stringify(p.geoJSON),
+      p.acreage,
+      p.cropType,
+      p.khasra,
+      p.khata,
+      p.state,
+      p.district,
+    );
+    await regTx.wait();
+    console.log(`   ✅ Plot #${i + 1} registered — ${p.label}`);
 
-  // 5. Fund Escrow Vault
-  console.log('\n5?? Seeding AgriTrustVault with 500.0 MST Escrow Liquidity...');
-  const escrowFundAmount = hre.ethers.parseEther('500.0');
+    const policyTx = await vault.createPolicy(i + 1, p.owner, insuredAmount);
+    await policyTx.wait();
+    console.log(`   ✅ Policy #${i + 1} created for ${p.insuredMST} MST coverage (${p.state})`);
+  }
+
+  // 4. Fund Escrow Vault — enough liquidity for every parametric payout scenario
+  console.log('\n4️⃣  Seeding AgriTrustVault with 500,000.0 MST Escrow Liquidity...');
+  const escrowFundAmount = hre.ethers.parseEther('500000.0');
   const depositTx = await vault.depositEscrow({ value: escrowFundAmount });
   await depositTx.wait();
-  console.log('? AgriTrustVault successfully funded with 500.0 MST Tokens!');
+  console.log('✅ AgriTrustVault successfully funded with 500,000.0 MST Tokens!');
 
-  // 6. Export Contract Addresses & ABIs for Developer 2 & Developer 3
+  // 4b. The AI Oracle key (agent/config/.env) is NOT one of the funded Hardhat
+  //     accounts, so top it up with gas money — otherwise it cannot submit
+  //     triggerDisasterPayout() transactions during the demo.
+  const oracleBalance = await hre.ethers.provider.getBalance(oracleAddress);
+  const oracleGasFloat = hre.ethers.parseEther('100.0');
+  if (oracleBalance < oracleGasFloat) {
+    const fundTx = await deployer.sendTransaction({ to: oracleAddress, value: oracleGasFloat });
+    await fundTx.wait();
+    console.log('⛽  AI Oracle wallet topped up with 100.0 MST for gas:', oracleAddress);
+  }
+
+  // 5. Export Contract Addresses & ABIs for the AI Agent & Frontend
   const configData = {
     network: hre.network.name,
     chainId: hre.network.config.chainId || 31337,
     contracts: {
       FarmRegistry: registryAddress,
-      AgriTrustVault: vaultAddress
+      AgriTrustVault: vaultAddress,
     },
     accounts: {
       deployer: deployer.address,
       aiOracleWallet: oracleAddress,
-      farmerWallet: farmerAddress
-    }
+      farmerWallet: farmerAddress,
+    },
   };
 
-  // Export to frontend
-  const frontendOutputDir = path.join(__dirname, '../frontend/src/contracts');
-  if (!fs.existsSync(frontendOutputDir)) {
-    fs.mkdirSync(frontendOutputDir, { recursive: true });
-  }
-  fs.writeFileSync(
-    path.join(frontendOutputDir, 'contract-addresses.json'),
-    JSON.stringify(configData, null, 2)
-  );
+  const frontendOutputDir = path.join(ROOT, 'frontend', 'src', 'contracts');
+  const agentOutputDir = path.join(ROOT, 'agent', 'config');
+  fs.mkdirSync(frontendOutputDir, { recursive: true });
+  fs.mkdirSync(agentOutputDir, { recursive: true });
 
-  // Export to AI agent
-  const agentOutputDir = path.join(__dirname, '../agent/config');
-  if (!fs.existsSync(agentOutputDir)) {
-    fs.mkdirSync(agentOutputDir, { recursive: true });
+  const configJson = JSON.stringify(configData, null, 2);
+
+  // Frontend + agent both read `contract-addresses.json`, and the agent ALSO
+  // reads `contracts.json` — write every variant so the bridge never goes stale.
+  for (const dir of [frontendOutputDir, agentOutputDir]) {
+    fs.writeFileSync(path.join(dir, 'contract-addresses.json'), configJson);
+    fs.writeFileSync(path.join(dir, 'contracts.json'), configJson);
   }
-  fs.writeFileSync(
-    path.join(agentOutputDir, 'contract-addresses.json'),
-    JSON.stringify(configData, null, 2)
-  );
 
   const registryArtifact = await hre.artifacts.readArtifact('FarmRegistry');
   const vaultArtifact = await hre.artifacts.readArtifact('AgriTrustVault');
@@ -117,11 +173,13 @@ async function main() {
   fs.writeFileSync(path.join(agentOutputDir, 'AgriTrustVault.json'), JSON.stringify(vaultArtifact, null, 2));
 
   console.log('\n=========================================================================');
-  console.log('? ALL DEPLOYMENT ARTIFACTS SUCCESSFULLY EXPORTED TO FRONTEND & AGENT!');
+  console.log('✅ ALL DEPLOYMENT ARTIFACTS SUCCESSFULLY EXPORTED TO FRONTEND & AGENT!');
+  console.log('   FarmRegistry :', registryAddress);
+  console.log('   AgriTrustVault:', vaultAddress);
   console.log('=========================================================================');
 }
 
 main().catch((error) => {
-  console.error('? Deployment failed:', error);
+  console.error('❌ Deployment failed:', error);
   process.exitCode = 1;
 });

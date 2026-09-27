@@ -23,7 +23,7 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
     {
       id: 'bihar-flood',
       label: 'Simulate Bihar Flood',
-      description: 'Darbhanga / Kosi Basin — 100% Payout, 9 days submerged',
+      description: 'Darbhanga / Kosi Basin — 50% Damage, 9 days submerged',
       icon: AlertTriangle,
       buttonClass: 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md hover:shadow-lg hover:scale-105',
       iconClass: 'bg-white/20',

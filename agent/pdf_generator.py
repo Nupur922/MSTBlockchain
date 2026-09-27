@@ -1,26 +1,32 @@
 """
 pdf_generator.py
 ================
-Developer 2 | V2 Feature — AgriTrust AI
-Cryptographic "NEWRRO AI Satellite Audit Certificate" PDF Generator
+AgriTrust AI V2 | Graph-Free High-Definition PDF Evidence Generator
 
-Generates a professional 1-page PDF audit certificate when a disaster
-payout is executed. Used by insurance companies and government regulators
-as a formal, tamper-proof audit trail.
+Generates a **strictly 1-page, 100% graph-free** disaster evidence certificate
+(no matplotlib, no canvas image overlays) used as the audit trail for a
+parametric payout. Layout is hard-capped at a 126 mm text width so nothing can
+ever spill across the document border.
 
-Certificate contains:
-  1. Certificate ID, Timestamp, Plot Location
-  2. Disaster Type (Flood / Drought / Heatwave)
-  3. Satellite Telemetry: NDVI Loss, SAR Backscatter, NDWI Moisture
-  4. Cryptographic Section: EIP-191 Proof Hash + MST TX Hash
-  5. NDVI/NDWI time-series graph (matplotlib)
-  6. Digital Signature Stamp: VERIFIED BY NEWRRO AI ORACLE AGENT
+Three structured sections (V2 specification):
+
+  1. Farmer & Government Land Record Identification
+     — Khasra No, Khata No, State, District, GeoJSON boundary polygon
+  2. Multi-Modal Satellite Remote Sensing Telemetry
+     — Copernicus Sentinel-1 SAR VV backscatter (dB), Sentinel-2 NDVI / NDWI
+  3. Escrow Settlement & Cryptographic Proof
+     — MST tx hash, EIP-191 ECDSA oracle signature, verified damage %,
+       consensus verdict and the official verification seal
 
 Usage:
     gen = PDFCertificateGenerator()
     path = gen.generate_audit_certificate(
-        plot_id="BIHAR_01",
-        farmer_name="Ram Singh",
+        plot_id="ASSAM_MAJULI_01",
+        farmer_name="Prasanta Kalita",
+        khasra_number="Patta No. 104/B",
+        khata_number="Khata 27/3",
+        state_name="Assam",
+        district_name="Majuli",
         ...
     )
     print(f"Certificate saved: {path}")
@@ -31,10 +37,7 @@ Project: AgriTrust AI — MST Blockchain Buildathon
 
 from __future__ import annotations
 
-import io
 import logging
-import os
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -54,6 +57,11 @@ logger = logging.getLogger("pdf_generator")
 # Output directory for certificates
 CERTIFICATES_DIR = Path(__file__).parent / "certificates"
 
+# ── Layout constraints (V2 specification) ────────────────────────────────────
+PAGE_WIDTH_MM = 210.0          # A4 portrait
+TEXT_WIDTH_MM = 126.0          # maximum text width — prevents border overflow
+MARGIN_MM = (PAGE_WIDTH_MM - TEXT_WIDTH_MM) / 2.0   # 42 mm symmetric margins
+
 
 # ---------------------------------------------------------------------------
 # Certificate data container
@@ -71,6 +79,17 @@ class CertificateData:
     payout_inr: float
     proof_hash: str                         # EIP-191 keccak256 hash
     tx_hash: str                            # MST blockchain TX hash
+    # ── V2.0: government land-record identification ────────────────────────
+    khasra_number: str = "N/A"
+    khata_number: str = "N/A"
+    state_name: str = "N/A"
+    district_name: str = "N/A"
+    geojson: str = "N/A"
+    # ── V2.0: cryptographic proof details ──────────────────────────────────
+    ecdsa_signature: str = "N/A"
+    oracle_address: str = "N/A"
+    vault_address: str = "N/A"
+    # ── Satellite telemetry ────────────────────────────────────────────────
     ndvi_pre: float = 0.75
     ndvi_post: float = 0.18
     sar_mean_db: float = -17.5
@@ -82,10 +101,18 @@ class CertificateData:
     farmer_phone: str = "N/A"
     crop_type: str = "RICE"
     acreage: float = 3.0
-    ndvi_series: list[float] = field(default_factory=lambda: [0.75, 0.72, 0.55, 0.30, 0.18, 0.22])
-    sar_series: list[float] = field(default_factory=lambda: [-8.5, -9.2, -16.1, -18.4, -19.0, -17.8])
     certificate_id: str = field(default_factory=lambda: f"CERT-{uuid.uuid4().hex[:12].upper()}")
     generated_at: str = field(default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"))
+
+
+def _compact_geojson(geojson: Optional[str], limit: int = 190) -> str:
+    """Collapse a GeoJSON polygon to a single readable, border-safe line."""
+    if not geojson:
+        return "N/A"
+    text = str(geojson).replace("\n", " ").strip()
+    if len(text) > limit:
+        return text[:limit] + " …"
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -94,11 +121,10 @@ class CertificateData:
 
 class PDFCertificateGenerator:
     """
-    Generates professional cryptographic audit certificate PDFs using ReportLab.
+    Generates 1-page, graph-free cryptographic disaster evidence certificates.
 
-    Each certificate is a legally formatted 1-page A4 document containing
-    satellite telemetry data, consensus results, and the EIP-191 signed
-    proof hash anchored to the MST Blockchain transaction.
+    Pure ReportLab vector/text layout — no matplotlib, no PNG/JPEG overlays —
+    so the output is fully text-selectable, searchable and regulation friendly.
     """
 
     # Brand colours (AgriTrust AI palette)
@@ -112,69 +138,6 @@ class PDFCertificateGenerator:
     def __init__(self, output_dir: Optional[str] = None):
         self.output_dir = Path(output_dir) if output_dir else CERTIFICATES_DIR
         self.output_dir.mkdir(parents=True, exist_ok=True)
-
-    # ------------------------------------------------------------------
-    # Internal: matplotlib graph → PNG bytes
-    # ------------------------------------------------------------------
-
-    def _generate_telemetry_graph(
-        self,
-        ndvi_series: list[float],
-        sar_series: list[float],
-        disaster_type: str,
-    ) -> bytes:
-        """Generate a dual-panel NDVI + SAR time-series graph as PNG bytes."""
-        try:
-            import matplotlib
-            matplotlib.use("Agg")  # Non-interactive backend
-            import matplotlib.pyplot as plt
-            import matplotlib.patches as mpatches
-            import numpy as np
-
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.2), facecolor="#f4faf5")
-            fig.suptitle("Satellite Telemetry Time Series", fontsize=11, fontweight="bold", color="#0f5a2e")
-
-            dates = [f"T-{len(ndvi_series) - i}" for i in range(len(ndvi_series))]
-            x     = np.arange(len(dates))
-
-            # NDVI panel
-            ax1.plot(x, ndvi_series, color="#1a7a3c", linewidth=2, marker="o", markersize=5)
-            ax1.axhline(y=0.25, color="red", linestyle="--", linewidth=1, label="Stress threshold")
-            ax1.fill_between(x, ndvi_series, 0.25, where=[v < 0.25 for v in ndvi_series],
-                             alpha=0.3, color="red", label="Distressed")
-            ax1.set_title("NDVI Vegetation Health", fontsize=9, fontweight="bold")
-            ax1.set_ylabel("NDVI", fontsize=8)
-            ax1.set_xticks(x)
-            ax1.set_xticklabels(dates, fontsize=7, rotation=30)
-            ax1.set_ylim(-0.1, 1.0)
-            ax1.set_facecolor("#f0f8f2")
-            ax1.legend(fontsize=7)
-            ax1.grid(True, alpha=0.3)
-
-            # SAR panel
-            colors = ["#c0392b" if db < -15 else "#2980b9" for db in sar_series]
-            ax2.bar(x, sar_series, color=colors, alpha=0.8)
-            ax2.axhline(y=-15.0, color="red", linestyle="--", linewidth=1, label="Flood threshold (-15 dB)")
-            ax2.set_title("SAR Backscatter (Flood Radar)", fontsize=9, fontweight="bold")
-            ax2.set_ylabel("Backscatter (dB)", fontsize=8)
-            ax2.set_xticks(x)
-            ax2.set_xticklabels(dates, fontsize=7, rotation=30)
-            ax2.set_facecolor("#f0f8f2")
-            flood_patch = mpatches.Patch(color="#c0392b", alpha=0.8, label="Flooded (<-15 dB)")
-            dry_patch   = mpatches.Patch(color="#2980b9", alpha=0.8, label="Dry land")
-            ax2.legend(handles=[flood_patch, dry_patch], fontsize=7)
-            ax2.grid(True, alpha=0.3, axis="y")
-
-            plt.tight_layout()
-            buf = io.BytesIO()
-            plt.savefig(buf, format="png", dpi=120, bbox_inches="tight")
-            plt.close(fig)
-            buf.seek(0)
-            return buf.read()
-
-        except Exception as exc:
-            logger.warning("⚠️  Graph generation failed (%s) — skipping graph.", exc)
-            return b""
 
     # ------------------------------------------------------------------
     # Main certificate generator
@@ -205,9 +168,18 @@ class PDFCertificateGenerator:
         acreage: float = 3.0,
         farmer_phone: str = "N/A",
         output_filename: Optional[str] = None,
+        # ── V2.0 land-record + cryptographic proof fields ──────────────────
+        khasra_number: str = "N/A",
+        khata_number: str = "N/A",
+        state_name: str = "N/A",
+        district_name: str = "N/A",
+        geojson: Optional[str] = None,
+        ecdsa_signature: str = "N/A",
+        oracle_address: str = "N/A",
+        vault_address: str = "N/A",
     ) -> str:
         """
-        Generate a cryptographic audit certificate PDF.
+        Generate a strictly 1-page, graph-free disaster evidence certificate.
 
         Returns the full file path of the generated PDF.
         """
@@ -217,30 +189,35 @@ class PDFCertificateGenerator:
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import mm
             from reportlab.platypus import (
-                SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-                HRFlowable, Image as RLImage,
+                SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
             )
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT
         except ImportError:
             logger.error("❌  reportlab not installed. Run: pip install reportlab")
             raise
 
-        # Build data object
+        # Build data object (ndvi_series / sar_series kept for API compatibility;
+        # V2 certificates are deliberately graph-free.)
         cert = CertificateData(
             plot_id=plot_id, farmer_name=farmer_name, location=location,
             disaster_type=disaster_type, damage_pct=damage_pct,
             payout_mst=payout_mst, payout_inr=payout_inr,
             proof_hash=proof_hash, tx_hash=tx_hash,
+            khasra_number=khasra_number or "N/A",
+            khata_number=khata_number or "N/A",
+            state_name=state_name or "N/A",
+            district_name=district_name or "N/A",
+            geojson=_compact_geojson(geojson),
+            ecdsa_signature=ecdsa_signature or "N/A",
+            oracle_address=oracle_address or "N/A",
+            vault_address=vault_address or "N/A",
             ndvi_pre=ndvi_pre, ndvi_post=ndvi_post,
             sar_mean_db=sar_mean_db, sar_flood_days=sar_flood_days,
             ndwi_value=ndwi_value, rainfall_mm=rainfall_mm,
             consensus_score=consensus_score, votes_for=votes_for,
             farmer_phone=farmer_phone, crop_type=crop_type, acreage=acreage,
-            ndvi_series=ndvi_series or [0.75, 0.72, 0.55, 0.30, 0.18, 0.22],
-            sar_series=sar_series or [-8.5, -9.2, -16.1, -18.4, -19.0, -17.8],
         )
 
-        # Output filename
         if not output_filename:
             output_filename = f"AuditCert_{plot_id}_{cert.certificate_id}.pdf"
         output_path = self.output_dir / output_filename
@@ -249,193 +226,200 @@ class PDFCertificateGenerator:
         dark_green  = colors.Color(*self.COLOR_DARK_GREEN)
         light_green = colors.Color(*self.COLOR_LIGHT_GREEN)
         gold        = colors.Color(*self.COLOR_GOLD)
-        red_color   = colors.Color(*self.COLOR_RED)
         dark_gray   = colors.Color(*self.COLOR_DARK_GRAY)
         white       = colors.white
 
-        # Document setup - exact 1-page budget
+        # ── Document setup: symmetric margins ⇒ exactly 126 mm of text width ──
         doc = SimpleDocTemplate(
             str(output_path),
             pagesize=A4,
-            rightMargin=12*mm, leftMargin=12*mm,
-            topMargin=8*mm, bottomMargin=8*mm,
+            leftMargin=MARGIN_MM * mm,
+            rightMargin=MARGIN_MM * mm,
+            topMargin=8 * mm,
+            bottomMargin=8 * mm,
+            title=f"AgriTrust AI Disaster Evidence Certificate {cert.certificate_id}",
+            author="AgriTrust AI Oracle Network",
         )
 
-        W, H = A4
+        W = TEXT_WIDTH_MM * mm          # usable text width (126 mm)
         styles = getSampleStyleSheet()
 
-        # Custom styles
         def style(name, **kwargs):
             return ParagraphStyle(name, parent=styles["Normal"], **kwargs)
 
-        title_style    = style("Title",    fontSize=13, textColor=white,       alignment=TA_CENTER, fontName="Helvetica-Bold", leading=16)
-        sub_style      = style("Sub",      fontSize=7.5,textColor=white,       alignment=TA_CENTER, fontName="Helvetica", leading=10)
-        section_style  = style("Section",  fontSize=8.5,textColor=dark_green,  fontName="Helvetica-Bold", leading=10)
-        body_style     = style("Body",     fontSize=7.5,textColor=dark_gray,   fontName="Helvetica", leading=9.5)
-        mono_style     = style("Mono",     fontSize=6.5,textColor=dark_gray,   fontName="Courier", wordWrap="CJK", leading=8)
-        stamp_style    = style("Stamp",    fontSize=9,  textColor=gold,        alignment=TA_CENTER, fontName="Helvetica-Bold", leading=12)
-        cert_id_style  = style("CertID",   fontSize=6.5,textColor=white,       alignment=TA_RIGHT, fontName="Courier", leading=8)
+        title_style   = style("Title",   fontSize=12, textColor=white, alignment=TA_CENTER, fontName="Helvetica-Bold", leading=14)
+        sub_style     = style("Sub",     fontSize=7,  textColor=white, alignment=TA_CENTER, fontName="Helvetica", leading=9)
+        section_style = style("Section", fontSize=8.5, textColor=dark_green, fontName="Helvetica-Bold", leading=10)
+        body_style    = style("Body",    fontSize=7.5, textColor=dark_gray, fontName="Helvetica", leading=9.5)
+        mono_style    = style("Mono",    fontSize=6.5, textColor=dark_gray, fontName="Courier", wordWrap="CJK", leading=8)
+        stamp_style   = style("Stamp",   fontSize=8.5, textColor=gold, alignment=TA_CENTER, fontName="Helvetica-Bold", leading=11)
+        cert_id_style = style("CertID",  fontSize=6.5, textColor=white, alignment=TA_CENTER, fontName="Courier", leading=8)
+        footer_style  = style("Footer",  fontSize=6.5, textColor=colors.Color(0.5, 0.5, 0.5), alignment=TA_CENTER, leading=8)
 
         story = []
 
-        # ── HEADER ─────────────────────────────────────────────────────
-        header_data = [[
-            Paragraph("🌾  NEWRRO AI &amp; MST BLOCKCHAIN", title_style),
-        ]]
-        header_sub = [[
-            Paragraph("SATELLITE AUDIT CERTIFICATE — PARAMETRIC CROP INSURANCE", sub_style),
-        ]]
-        cert_id_row = [[
-            Paragraph(f"CERT ID: {cert.certificate_id}  |  {cert.generated_at}", cert_id_style),
-        ]]
-
-        header_table = Table(header_data, colWidths=[W - 24*mm])
-        header_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), dark_green),
-            ("TOPPADDING",    (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 8),
-        ]))
-
-        sub_table = Table(header_sub, colWidths=[W - 24*mm])
-        sub_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), dark_green),
-            ("TOPPADDING",    (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ]))
-
-        cert_id_table = Table(cert_id_row, colWidths=[W - 24*mm])
-        cert_id_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), dark_green),
-            ("TOPPADDING",    (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 8),
-        ]))
-
-        story += [header_table, sub_table, cert_id_table, Spacer(1, 2*mm)]
-
-        # ── FARM & DISASTER DETAILS ─────────────────────────────────────
-        def section_header(text):
-            t = Table([[Paragraph(f"▶  {text}", section_style)]], colWidths=[W - 24*mm])
+        # ── HEADER ─────────────────────────────────────────────────────────
+        def banner(rows, style_obj, pad_top, pad_bottom, background=dark_green):
+            t = Table([[Paragraph(r, style_obj)] for r in rows], colWidths=[W])
             t.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), light_green),
+                ("BACKGROUND",    (0, 0), (-1, -1), background),
+                ("TOPPADDING",    (0, 0), (-1, -1), pad_top),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), pad_bottom),
+                ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+            ]))
+            return t
+
+        story.append(banner(["🌾  AGRITRUST AI  —  MST BLOCKCHAIN LAYER 1"], title_style, 5, 2))
+        story.append(banner(["SATELLITE DISASTER EVIDENCE CERTIFICATE — PARAMETRIC CROP INSURANCE"], sub_style, 1, 2))
+        story.append(banner([f"CERT ID: {cert.certificate_id}   |   {cert.generated_at}"], cert_id_style, 1, 4))
+        story.append(Spacer(1, 2 * mm))
+
+        # ── Shared table builders ──────────────────────────────────────────
+        def section_header(text):
+            t = Table([[Paragraph(f"▶  {text}", section_style)]], colWidths=[W])
+            t.setStyle(TableStyle([
+                ("BACKGROUND",    (0, 0), (-1, -1), light_green),
                 ("TOPPADDING",    (0, 0), (-1, -1), 2.5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
                 ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-                ("LINEBELOW", (0, 0), (-1, -1), 1, dark_green),
+                ("LINEBELOW",     (0, 0), (-1, -1), 1, dark_green),
             ]))
             return t
 
-        def info_table(rows, col_widths=None):
-            """2-column key-value info table."""
-            cw = col_widths or [(W - 24*mm) * 0.35, (W - 24*mm) * 0.65]
-            t  = Table(rows, colWidths=cw)
+        def info_table(rows):
+            """2-column key/value table, total width pinned to 126 mm."""
+            cells = []
+            for key, value in rows:
+                cells.append([
+                    Paragraph(str(key), body_style),
+                    value if isinstance(value, Paragraph) else Paragraph(str(value), body_style),
+                ])
+            t = Table(cells, colWidths=[W * 0.33, W * 0.67])
             t.setStyle(TableStyle([
-                ("FONTNAME",  (0, 0), (0, -1), "Helvetica-Bold"),
-                ("FONTNAME",  (1, 0), (1, -1), "Helvetica"),
-                ("FONTSIZE",  (0, 0), (-1, -1), 7.5),
-                ("TEXTCOLOR", (0, 0), (-1, -1), dark_gray),
-                ("TOPPADDING",    (0, 0), (-1, -1), 1.2),
+                ("FONTNAME",     (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE",     (0, 0), (-1, -1), 7.5),
+                ("TEXTCOLOR",    (0, 0), (-1, -1), dark_gray),
+                ("VALIGN",       (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING",   (0, 0), (-1, -1), 1.2),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 1.2),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+                ("LEFTPADDING",  (0, 0), (-1, -1), 5),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 5),
                 ("ROWBACKGROUNDS", (0, 0), (-1, -1), [white, colors.Color(0.97, 0.99, 0.97)]),
+                ("GRID",         (0, 0), (-1, -1), 0.25, colors.Color(0.85, 0.9, 0.85)),
             ]))
             return t
 
-        story.append(section_header("1. FARM PLOT & DISASTER IDENTIFICATION"))
-        story.append(Spacer(1, 0.8*mm))
+        def mono(value: str) -> Paragraph:
+            return Paragraph(f"<font name='Courier' size='6.5'>{value}</font>", mono_style)
+
+        # ── SECTION 1: FARMER & GOVERNMENT LAND RECORD ─────────────────────
+        story.append(section_header("1. FARMER &amp; GOVERNMENT LAND RECORD IDENTIFICATION"))
+        story.append(Spacer(1, 0.8 * mm))
         story.append(info_table([
-            ["Plot ID:",         cert.plot_id],
-            ["Farmer Name:",     cert.farmer_name],
-            ["Location:",        cert.location],
-            ["Crop Type:",       f"{cert.crop_type}  |  Acreage: {cert.acreage} acres"],
-            ["Phone:",           cert.farmer_phone],
-            ["Disaster Type:",   cert.disaster_type],
-            ["Assessment Date:", cert.generated_at],
+            ["Plot ID:",          cert.plot_id],
+            ["Farmer Name:",      cert.farmer_name],
+            ["Khasra / Survey No:", cert.khasra_number],
+            ["Khata / Khatiyan No:", cert.khata_number],
+            ["State / District:", f"{cert.state_name} / {cert.district_name}"],
+            ["Crop &amp; Acreage:", f"{cert.crop_type} — {cert.acreage} acres"],
+            ["Farmer Mobile:",    cert.farmer_phone],
+            ["Disaster Type:",    f"{cert.disaster_type}  |  {cert.location}"],
+            ["GeoJSON Polygon:",  mono(cert.geojson)],
         ]))
+        story.append(Spacer(1, 1.6 * mm))
 
-        story.append(Spacer(1, 1.8*mm))
-
-        # ── SATELLITE TELEMETRY ─────────────────────────────────────────
-        story.append(section_header("2. SATELLITE TELEMETRY METRICS"))
-        story.append(Spacer(1, 0.8*mm))
+        # ── SECTION 2: MULTI-MODAL SATELLITE TELEMETRY ─────────────────────
+        story.append(section_header("2. MULTI-MODAL SATELLITE TELEMETRY (COPERNICUS SENTINEL-1/2)"))
+        story.append(Spacer(1, 0.8 * mm))
 
         ndvi_loss = round((cert.ndvi_pre - cert.ndvi_post) / cert.ndvi_pre * 100, 1) if cert.ndvi_pre > 0 else 0.0
+        sar_verdict = "FLOOD (specular reflection)" if cert.sar_mean_db < -15.0 else "DRY LAND"
+        ndwi_verdict = "DROUGHT STRESS" if cert.ndwi_value < -0.35 else "NORMAL"
         story.append(info_table([
-            ["Sentinel-2 NDVI (Pre-event):",  f"{cert.ndvi_pre:.4f}  (Healthy crop baseline)"],
-            ["Sentinel-2 NDVI (Post-event):", f"{cert.ndvi_post:.4f}  (Post-disaster measurement)"],
+            ["Sentinel-1 SAR VV Backscatter:", f"{cert.sar_mean_db:.2f} dB  →  {sar_verdict}  (threshold −15.0 dB)"],
+            ["SAR Flood Duration:",           f"{cert.sar_flood_days} consecutive day(s) below −15 dB"],
+            ["Sentinel-2 NDVI (Pre / Post):", f"{cert.ndvi_pre:.4f}  →  {cert.ndvi_post:.4f}"],
             ["NDVI Vegetation Loss:",         f"{ndvi_loss:.1f}%  {'⚠ CRITICAL' if ndvi_loss > 50 else '⚠ SEVERE' if ndvi_loss > 30 else 'MODERATE'}"],
-            ["Sentinel-1 SAR Mean:",          f"{cert.sar_mean_db:.2f} dB  (Flood threshold: -15.0 dB)"],
-            ["SAR Flood Duration:",           f"{cert.sar_flood_days} consecutive days below -15 dB"],
-            ["NDWI Moisture Index:",          f"{cert.ndwi_value:.4f}  {'🌵 DROUGHT' if cert.ndwi_value < -0.35 else 'NORMAL'}"],
-            ["IMD/OWM Rainfall (48h):",       f"{cert.rainfall_mm:.1f} mm"],
+            ["Sentinel-2 NDWI Index:",        f"{cert.ndwi_value:.4f}  →  {ndwi_verdict}"],
+            ["IMD / OpenWeather Rainfall:",   f"{cert.rainfall_mm:.1f} mm in 48 hours"],
+            ["Sensor Fusion:",                "2-of-3 Byzantine consensus across SAR · Optical · Precipitation"],
+        ]))
+        story.append(Spacer(1, 1.6 * mm))
+
+        # ── SECTION 3: ESCROW SETTLEMENT & CRYPTOGRAPHIC PROOF ─────────────
+        story.append(section_header("3. ESCROW SETTLEMENT &amp; CRYPTOGRAPHIC PROOF OF DISASTER"))
+        story.append(Spacer(1, 0.8 * mm))
+
+        verdict = f"✅ APPROVED — {cert.votes_for}/3 oracle feeds confirmed the event"
+        story.append(info_table([
+            ["Oracle Consensus:",       f"{cert.consensus_score:.2f}  ({cert.votes_for}/3 feeds voted YES)"],
+            ["Verdict:",                verdict],
+            ["Verified Damage:",        f"{cert.damage_pct:.1f}%"],
+            ["Escrow Payout Settled:",  f"{cert.payout_mst:,.2f} MST  (≈ ₹{cert.payout_inr:,.0f})"],
+            ["MST Blockchain Tx Hash:", mono(cert.tx_hash)],
+            ["EIP-191 Proof Hash:",     mono(cert.proof_hash)],
+            ["ECDSA Oracle Signature:", mono(cert.ecdsa_signature)],
+            ["Oracle Signer:",          mono(cert.oracle_address)],
+            ["AgriTrustVault:",         mono(cert.vault_address)],
         ]))
 
-        story.append(Spacer(1, 1.8*mm))
+        story.append(Spacer(1, 2.5 * mm))
 
-        # ── CONSENSUS RESULT ────────────────────────────────────────────
-        story.append(section_header("3. NEWRRO AI 2-OF-3 MULTI-SOURCE CONSENSUS RESULT"))
-        story.append(Spacer(1, 0.8*mm))
-
-        verdict_text = f"✅ APPROVED — {cert.votes_for}/3 feeds confirmed disaster event"
-        story.append(info_table([
-            ["Oracle Consensus Score:", f"{cert.consensus_score:.2f}  ({cert.votes_for}/3 feeds voted YES)"],
-            ["Verdict:",               verdict_text],
-            ["Verified Damage:",       f"{cert.damage_pct:.1f}%"],
-            ["Payout Authorized:",     f"{cert.payout_mst:,.2f} MST  (≈ ₹{cert.payout_inr:,.0f})"],
-        ]))
-
-        story.append(Spacer(1, 3*mm))
-
-        # ── CRYPTOGRAPHIC PROOF ─────────────────────────────────────────
-        story.append(section_header("4. CRYPTOGRAPHIC BLOCKCHAIN PROOF"))
-        story.append(Spacer(1, 1*mm))
-        story.append(info_table([
-            ["EIP-191 AI Proof Hash:", Paragraph(f"<font name='Courier' size='7'>{cert.proof_hash}</font>", body_style)],
-            ["MST Blockchain TX Hash:", Paragraph(f"<font name='Courier' size='7'>{cert.tx_hash}</font>", body_style)],
-            ["Signing Standard:",       "EIP-191 Personal Sign (Ethereum keccak256)"],
-            ["ECDSA Recovery:",         "OpenZeppelin ECDSA.recover() verified on MST Layer 1"],
-        ], col_widths=[(W - 24*mm) * 0.35, (W - 24*mm) * 0.65]))
-
-        story.append(Spacer(1, 2*mm))
-
-        # ── VERIFICATION STAMP ──────────────────────────────────────────
-        stamp_data = [[Paragraph(
-            "✅  VERIFIED &amp; DIGITALLY SIGNED BY NEWRRO AI ORACLE AGENT<br/>"
-            "Cryptographically anchored to MST Blockchain Layer 1. Tamper-evident EIP-191 proof.",
+        # ── OFFICIAL VERIFICATION SEAL ─────────────────────────────────────
+        stamp = Table([[Paragraph(
+            "✅  VERIFIED &amp; DIGITALLY SIGNED BY THE AGRITRUST AI ORACLE NETWORK<br/>"
+            "<font size='7'>EIP-191 ECDSA · OpenZeppelin ECDSA.recover() · anchored to MST Blockchain Layer 1 · "
+            "tamper-evident, 1-page graph-free evidence</font>",
             stamp_style,
-        )]]
-        stamp_table = Table(stamp_data, colWidths=[W - 24*mm])
-        stamp_table.setStyle(TableStyle([
+        )]], colWidths=[W])
+        stamp.setStyle(TableStyle([
             ("BACKGROUND",    (0, 0), (-1, -1), colors.Color(0.98, 0.95, 0.85)),
-            ("BOX",           (0, 0), (-1, -1), 1, gold),
+            ("BOX",           (0, 0), (-1, -1), 1.25, gold),
             ("TOPPADDING",    (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
-        story.append(stamp_table)
+        story.append(stamp)
 
-        story.append(Spacer(1, 1.5*mm))
+        story.append(Spacer(1, 1.5 * mm))
         story.append(HRFlowable(width="100%", thickness=0.5, color=dark_green))
-        story.append(Spacer(1, 0.8*mm))
+        story.append(Spacer(1, 0.8 * mm))
         story.append(Paragraph(
             "AgriTrust AI — Autonomous Parametric Crop Insurance &amp; Disaster Relief Escrow | "
-            "MST Blockchain Layer 1 | NEWRRO AI Remote Sensing Engine",
-            style("Footer", fontSize=6.5, textColor=colors.Color(0.5, 0.5, 0.5), alignment=TA_CENTER),
+            "MST Blockchain Layer 1 | Copernicus Sentinel-1/2 Remote Sensing",
+            footer_style,
         ))
 
         # Build PDF
         doc.build(story)
+
+        pages = self.page_count(output_path)
+        if pages != 1:
+            logger.warning("⚠️  Certificate spans %d pages — V2 requires exactly 1 page.", pages)
+
         logger.info(
             "📜  Audit Certificate generated:\n"
-            "    File   : %s\n"
-            "    Cert ID: %s\n"
-            "    Plot   : %s | %s\n"
-            "    Payout : %.2f MST (₹%s)",
+            "    File    : %s\n"
+            "    Cert ID : %s\n"
+            "    Plot    : %s | %s | Khasra %s\n"
+            "    Payout  : %.2f MST (₹%s)\n"
+            "    Pages   : %d",
             output_path, cert.certificate_id,
-            plot_id, disaster_type,
-            payout_mst, f"{payout_inr:,.0f}",
+            plot_id, disaster_type, cert.khasra_number,
+            payout_mst, f"{payout_inr:,.0f}", pages,
         )
         return str(output_path)
+
+    # ------------------------------------------------------------------
+    # Page-count guard (keeps the "strictly 1 page" promise honest)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def page_count(pdf_path: Path) -> int:
+        try:
+            raw = Path(pdf_path).read_bytes()
+            return raw.count(b"/Type /Page") - raw.count(b"/Type /Pages")
+        except Exception:
+            return 1
 
 
 # ---------------------------------------------------------------------------
@@ -446,24 +430,32 @@ if __name__ == "__main__":
     gen = PDFCertificateGenerator()
 
     path = gen.generate_audit_certificate(
-        plot_id="BIHAR_DARBHANGA_01",
-        farmer_name="Ram Singh",
-        location="Darbhanga, Bihar (Kosi River Flood Zone)",
+        plot_id="ASSAM_MAJULI_01",
+        farmer_name="Prasanta Kalita",
+        location="Majuli, Assam (Brahmaputra Flood Zone)",
         disaster_type="Monsoon Flood",
-        damage_pct=76.0,
+        damage_pct=65.0,
         payout_mst=25_000.0,
         payout_inr=25_000.0,
         proof_hash="0xabc123def456abc123def456abc123def456abc123def456abc123def456abc1",
         tx_hash="0x9f8e7d6c5b4a3928374650192837465019283746501928374650192837465019",
+        khasra_number="Patta No. 104/B",
+        khata_number="Khata 27/3",
+        state_name="Assam",
+        district_name="Majuli",
+        geojson='{"type":"Polygon","coordinates":[[[94.1714,26.7541],[94.2,26.7541],[94.2,26.73],[94.1714,26.73],[94.1714,26.7541]]]}',
+        ecdsa_signature="0x8f3a91bc24ef10d5c7a6b9e2d4f81a03c5e7b6d9a2f4c1e8b3d6f0a9c2e5b7d41a8f3c6e9b2d5a7f0c4e1b8d6a3f5c9e0b2d7a4f6c1e8",
+        oracle_address="0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        vault_address="0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
         ndvi_pre=0.75,
-        ndvi_post=0.18,
+        ndvi_post=0.26,
         sar_mean_db=-17.5,
         sar_flood_days=6,
         ndwi_value=-0.12,
         rainfall_mm=210.0,
         consensus_score=1.0,
         votes_for=3,
-        crop_type="RICE",
-        acreage=3.0,
+        crop_type="Paddy (Rice)",
+        acreage=5.0,
     )
     print(f"\n[OK] Certificate saved: {path}")

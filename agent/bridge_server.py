@@ -238,7 +238,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"status": "error", "message": f"Invalid JSON body: {exc}"})
             return
 
-        scenario = str(payload.get("scenario", "assam-flood")).strip().lower()
+        # `scenario` is required: defaulting it here would let an empty POST
+        # body silently place a REAL Twilio call to the demo farmer number.
+        raw_scenario = payload.get("scenario")
+        if raw_scenario is None or not str(raw_scenario).strip():
+            self._send_json(400, {
+                "status": "error",
+                "message": "Missing required field 'scenario'",
+                "supported": sorted(SCENARIOS.keys()),
+                "no_dispatch": sorted(NO_DISPATCH_SCENARIOS),
+            })
+            return
+
+        scenario = str(raw_scenario).strip().lower()
 
         # Baseline / reset must never dial a farmer
         if scenario in NO_DISPATCH_SCENARIOS:
@@ -276,11 +288,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
             damage_pct = spec["damage_pct"]
 
         payout_ratio = payload.get("payoutRatio")
+        payout_inr: Optional[float] = None
+        # 1) Explicit ₹ amount from the dashboard wins (keeps every surface in sync)
         try:
-            payout_inr = round(INSURED_VALUE_INR * float(payout_ratio), 2) if payout_ratio is not None \
-                else round(INSURED_VALUE_INR * spec["payout_ratio"], 2)
+            if payload.get("payoutInr") is not None:
+                payout_inr = round(float(payload.get("payoutInr")), 2)
         except (TypeError, ValueError):
-            payout_inr = round(INSURED_VALUE_INR * spec["payout_ratio"], 2)
+            payout_inr = None
+        # 2) Otherwise derive it from the relief ratio × sum insured
+        if payout_inr is None:
+            try:
+                ratio = float(payout_ratio) if payout_ratio is not None else spec["payout_ratio"]
+            except (TypeError, ValueError):
+                ratio = spec["payout_ratio"]
+            payout_inr = round(INSURED_VALUE_INR * ratio, 2)
 
         farmer_name = str(payload.get("farmerName") or spec["farmer_name"])
         location = str(payload.get("location") or spec["location"])
