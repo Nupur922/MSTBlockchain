@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { Sprout, Wallet } from 'lucide-react';
+import { Sprout, Wallet, ShieldCheck, Search, PhoneCall, Globe } from 'lucide-react';
 import { connectWallet, switchToHardhat } from '../utils/web3';
+import GovtDBTTrackerModal from './GovtDBTTrackerModal';
 
 const Header = () => {
   const [walletAddress, setWalletAddress] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showGovtTracker, setShowGovtTracker] = useState(false);
 
   const handleConnectWallet = async () => {
     setIsConnecting(true);
     try {
-      // First switch to Hardhat network
       await switchToHardhat();
-      
-      // Then connect wallet
       const { address } = await connectWallet();
       setWalletAddress(address);
     } catch (error) {
@@ -29,51 +28,97 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-gradient-to-r from-primary to-secondary text-white shadow-lg">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          {/* Logo and Brand */}
+    <header className="font-sans">
+      {/* 🇮🇳 Top Official Indian Government Banner Strip */}
+      <div className="bg-white border-b border-gray-100 text-[11px] py-1.5 px-4">
+        <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center space-x-3">
-            <div className="bg-white p-2 rounded-lg">
-              <Sprout className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">AgriTrust AI</h1>
-              <p className="text-sm text-green-100">Parametric Crop Insurance on MST Blockchain</p>
-            </div>
+            <span className="flex items-center space-x-1 font-bold text-gray-700">
+              <span>🇮🇳</span>
+              <span>GOVERNMENT OF INDIA</span>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">MINISTRY OF AGRICULTURE</span>
+            <span className="text-gray-300">|</span>
+            <span className="text-emerald-700 font-bold">PMFBY DIRECT BENEFIT TRANSFER (DBT) ESCROW PORTAL</span>
           </div>
 
-          {/* Header Action Buttons */}
-          <div className="flex items-center space-x-3">
-            {/* Open on Phone Badge */}
-            <a
-              href="http://10.60.4.237:3000"
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open http://10.60.4.237:3000 on your mobile browser (connected to same WiFi)"
-              className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-xs font-semibold backdrop-blur-sm border border-white/20 transition-all text-white"
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1.5 text-emerald-600 font-semibold">
+              <PhoneCall className="w-3 h-3" />
+              <span>Toll-Free Kisan Help Centre: <strong>14447</strong></span>
+            </div>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => setShowGovtTracker(true)}
+              className="text-emerald-600 font-bold hover:underline flex items-center space-x-1"
             >
-              <span>📱 Phone: 10.60.4.237:3000</span>
-            </a>
-
-            {walletAddress ? (
-              <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center space-x-2">
-                <Wallet className="w-5 h-5" />
-                <span className="font-mono">{truncateAddress(walletAddress)}</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleConnectWallet}
-                disabled={isConnecting}
-                className="bg-white text-primary px-5 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors flex items-center space-x-2 disabled:opacity-50 text-sm"
-              >
-                <Wallet className="w-4 h-4" />
-                <span>{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
-              </button>
-            )}
+              <Search className="w-3 h-3" />
+              <span>Public DBT Audit Portal</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Main Navigation Header */}
+      <div className="bg-white shadow-sm border-b border-gray-100 py-4">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            {/* Logo and Brand */}
+            <div className="flex items-center space-x-3.5">
+              <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-md shadow-emerald-100">
+                <ShieldCheck className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h1 className="text-2xl font-black tracking-tight text-gray-900">
+                    AgriTrust AI
+                  </h1>
+                  <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-200">
+                    PMFBY MST L1
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Parametric Crop Insurance &amp; Instant Satellite Disaster Relief Escrow on MST Blockchain
+                </p>
+              </div>
+            </div>
+
+            {/* Header Action Buttons */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowGovtTracker(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all shadow-sm"
+              >
+                <Search className="w-4 h-4" />
+                <span>Track DBT Claim Status</span>
+              </button>
+
+              {walletAddress ? (
+                <div className="bg-emerald-50 border-2 border-emerald-200 px-4 py-2 rounded-xl flex items-center space-x-2 text-xs font-mono text-emerald-700">
+                  <Wallet className="w-4 h-4 text-emerald-600" />
+                  <span>{truncateAddress(walletAddress)}</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleConnectWallet}
+                  disabled={isConnecting}
+                  className="bg-white border-2 border-emerald-200 hover:border-emerald-400 text-emerald-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 disabled:opacity-50 text-xs"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span>{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Govt DBT Tracker Modal */}
+      <GovtDBTTrackerModal
+        isOpen={showGovtTracker}
+        onClose={() => setShowGovtTracker(false)}
+      />
     </header>
   );
 };

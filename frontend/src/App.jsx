@@ -5,6 +5,7 @@ import Header               from './components/Header';
 import StatCards            from './components/StatCards';
 import FarmMap              from './components/FarmMap';
 import PlotTelemetry        from './components/PlotTelemetry';
+import MultiHazardAnalyzer  from './components/MultiHazardAnalyzer';
 import DemoControlPanel     from './components/DemoControlPanel';
 import VoiceAlertModal      from './components/VoiceAlertModal';
 import AePSCashoutModal     from './components/AePSCashoutModal';
@@ -23,6 +24,18 @@ function App() {
   const [activeScenario,  setActiveScenario]  = useState(null);
   const [qrScannedPlot,   setQrScannedPlot]   = useState(null);
 
+  // ── Active Multi-Hazard Telemetry State ─────────────────────────────────────
+  const [activeTelemetry, setActiveTelemetry] = useState({
+    ndvi_score: 0.75,
+    sar_backscatter_db: -10.5,
+    days_submerged: 0,
+    ndwi_score: -0.12,
+    lst_temp_c: 28.5,
+    status: "HEALTHY_GROWING_CROP",
+    payout_ratio: 0.0,
+    hazard_type: "NONE"
+  });
+
   // ── Payout event data (populated from on-chain or demo) ───────────────────
   const [payoutEvent, setPayoutEvent] = useState({
     policyId:      null,
@@ -34,17 +47,14 @@ function App() {
   });
 
   // ── Modal visibility ──────────────────────────────────────────────────────
-  const [showVoice,    setShowVoice]    = useState(false);
-  const [showAePS,     setShowAePS]     = useState(false);
-  const [showQR,       setShowQR]       = useState(false);
-  const [showEnroll,   setShowEnroll]   = useState(false);
+  const [showVoice,       setShowVoice]       = useState(false);
+  const [showAePS,        setShowAePS]        = useState(false);
+  const [showQR,          setShowQR]          = useState(false);
+  const [showEnroll,      setShowEnroll]      = useState(false);
   const [showPDFEvidence, setShowPDFEvidence] = useState(false);
 
   // ── Chain connection ──────────────────────────────────────────────────────
   const [chainStatus,  setChainStatus]  = useState('disconnected');
-  // 'disconnected' | 'listening' | 'error'
-
-  // Refs to avoid stale closures in setInterval
   const chainStatusRef = useRef('disconnected');
   const contractRef    = useRef(null);
   const providerRef    = useRef(null);
@@ -69,8 +79,6 @@ function App() {
       providerRef.current  = provider;
       contractRef.current  = contract;
 
-      // ✅ Janaki's real event: DisasterPayoutExecuted
-      // Params: policyId, plotId, farmer, payoutAmountMST, proofHash, timestamp
       contract.on('DisasterPayoutExecuted',
         (policyId, plotId, farmer, payoutAmountMST, proofHash, timestamp) => {
           console.log('🚨 DisasterPayoutExecuted:', {
@@ -112,14 +120,23 @@ function App() {
       clearInterval(retry);
       contractRef.current?.removeAllListeners?.('DisasterPayoutExecuted');
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Demo Scenario Handler ────────────────────────────────────────────────
+  // ─── Multi-Hazard Scenario Handler ───────────────────────────────────────
 
   const handleTriggerScenario = useCallback(async (scenarioId) => {
     if (scenarioId === 'reset') {
       setActiveScenario(null);
+      setActiveTelemetry({
+        ndvi_score: 0.75,
+        sar_backscatter_db: -10.5,
+        days_submerged: 0,
+        ndwi_score: -0.12,
+        lst_temp_c: 28.5,
+        status: "HEALTHY_GROWING_CROP",
+        payout_ratio: 0.0,
+        hazard_type: "NONE"
+      });
       return;
     }
     setActiveScenario(scenarioId);
@@ -132,29 +149,118 @@ function App() {
       mockAmount = '0.5';
       mockPlotId = '1';
       stateName = 'Assam';
+      setActiveTelemetry({
+        ndvi_score: 0.28,
+        sar_backscatter_db: -22.4,
+        days_submerged: 6,
+        ndwi_score: 0.35,
+        lst_temp_c: 24.0,
+        status: "CRITICAL_FLOOD_SUBMERSION",
+        payout_ratio: 0.70,
+        hazard_type: "MONSOON_FLOOD"
+      });
     } else if (scenarioId === 'bihar-flood') {
       mockAmount = '0.75';
       mockPlotId = '2';
       stateName = 'Bihar';
-    } else if (scenarioId === 'maharashtra-flood') {
-      mockAmount = '0.85';
+      setActiveTelemetry({
+        ndvi_score: 0.18,
+        sar_backscatter_db: -24.1,
+        days_submerged: 9,
+        ndwi_score: 0.45,
+        lst_temp_c: 25.5,
+        status: "TOTAL_CROP_DESTRUCTION",
+        payout_ratio: 1.00,
+        hazard_type: "MONSOON_FLOOD"
+      });
+    } else if (scenarioId === 'maharashtra-drought') {
+      mockAmount = '0.50';
       mockPlotId = '3';
       stateName = 'Maharashtra';
-    } else if (scenarioId === 'gujarat-flood') {
-      mockAmount = '0.65';
+      setActiveTelemetry({
+        ndvi_score: 0.32,
+        sar_backscatter_db: -8.5,
+        days_submerged: 0,
+        ndwi_score: -0.45,
+        lst_temp_c: 38.5,
+        status: "FLASH_DROUGHT_MOISTURE_STRESS",
+        payout_ratio: 0.50,
+        hazard_type: "FLASH_DROUGHT"
+      });
+    } else if (scenarioId === 'punjab-heatwave') {
+      mockAmount = '0.40';
       mockPlotId = '4';
-      stateName = 'Gujarat';
+      stateName = 'Punjab';
+      setActiveTelemetry({
+        ndvi_score: 0.42,
+        sar_backscatter_db: -9.0,
+        days_submerged: 0,
+        ndwi_score: -0.32,
+        lst_temp_c: 44.2,
+        status: "SCORCHING_HEATWAVE_WHEAT_STRESS",
+        payout_ratio: 0.40,
+        hazard_type: "SCORCHING_HEATWAVE"
+      });
     } else if (scenarioId === 'karnataka-flood') {
       mockAmount = '0.70';
       mockPlotId = '5';
       stateName = 'Karnataka';
-    } else if (scenarioId === 'punjab-flood') {
-      mockAmount = '0.90';
+      setActiveTelemetry({
+        ndvi_score: 0.25,
+        sar_backscatter_db: -18.2,
+        days_submerged: 5,
+        ndwi_score: 0.10,
+        lst_temp_c: 27.0,
+        status: "CRITICAL_INUNDATION",
+        payout_ratio: 0.70,
+        hazard_type: "MONSOON_FLOOD"
+      });
+    } else if (scenarioId === 'tn-harvest-rain') {
+      mockAmount = '0.75';
       mockPlotId = '6';
-      stateName = 'Punjab';
+      stateName = 'Tamil Nadu';
+      setActiveTelemetry({
+        ndvi_score: 0.20,
+        sar_backscatter_db: -11.0,
+        days_submerged: 0,
+        ndwi_score: 0.15,
+        lst_temp_c: 26.0,
+        status: "HARVEST_RAIN_CROP_LODGING",
+        payout_ratio: 0.75,
+        hazard_type: "HARVEST_RAIN_LODGING"
+      });
+    } else if (scenarioId === 'harvest-confusion') {
+      mockAmount = '0.00';
+      mockPlotId = '7';
+      stateName = 'Bihar';
+      setActiveTelemetry({
+        ndvi_score: 0.15,
+        sar_backscatter_db: -8.0,
+        days_submerged: 0,
+        ndwi_score: -0.10,
+        lst_temp_c: 28.0,
+        status: "NORMAL_DRY_HARVEST_STUBBLE",
+        payout_ratio: 0.0,
+        hazard_type: "NORMAL_HARVEST"
+      });
+      return; // No payout modal for normal harvest
+    } else if (scenarioId === 'ghost-crop-fraud') {
+      mockAmount = '0.00';
+      mockPlotId = '8';
+      stateName = 'Assam';
+      setActiveTelemetry({
+        ndvi_score: 0.55,
+        sar_backscatter_db: -7.5,
+        days_submerged: 0,
+        ndwi_score: 0.05,
+        lst_temp_c: 29.0,
+        status: "GHOST_CROP_WEED_FRAUD_FLAGGED",
+        payout_ratio: 0.0,
+        hazard_type: "GHOST_CROP_FRAUD_FLAGGED"
+      });
+      return; // No payout modal for fraud
     }
 
-    // Pre-populate payout event for demo modals
     setPayoutEvent({
       policyId:     '1',
       plotId:       mockPlotId,
@@ -165,13 +271,9 @@ function App() {
       stateName:    stateName,
     });
 
-    // Open modals immediately in demo mode
-    // (If chain is live and signed proof is available, the real event listener
-    //  fires from triggerDisasterPayout() in sentinel_agent.py instead)
     setShowVoice(true);
     setShowAePS(true);
 
-    // Also trigger the real Twilio live phone call via the local agent bridge (if running)
     try {
       fetch('http://127.0.0.1:8000/api/trigger-call', {
         method: 'POST',
@@ -181,20 +283,16 @@ function App() {
     } catch (_) {}
   }, []);
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────
-
   const handlePlotScanned = useCallback((plotData) => {
     setQrScannedPlot(plotData);
     setShowQR(false);
   }, []);
 
   const handleEnrolled = useCallback(() => {
-    // Force FarmMap to re-fetch on-chain plots by bumping key
     setMapRefreshKey(k => k + 1);
     setShowEnroll(false);
   }, []);
 
-  // ─── Chain Status Badge ───────────────────────────────────────────────────
   const chainBadge = () => {
     if (chainStatus === 'listening') return (
       <span className="inline-flex items-center space-x-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
@@ -216,9 +314,8 @@ function App() {
     );
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/20 to-teal-50/10">
       <Header />
 
       {/* ── Modals ── */}
@@ -254,15 +351,16 @@ function App() {
         payoutEvent={payoutEvent}
       />
 
-      {/* ── Dashboard ── */}
-      <main className="container mx-auto px-4 py-8">
+      {/* ── Dashboard Main ── */}
+      <main className="container mx-auto px-4 py-8 space-y-8">
         <DemoControlPanel onTriggerScenario={handleTriggerScenario} />
         <StatCards />
 
+        {/* V3 Multi-Hazard Analyzer Widget */}
+        <MultiHazardAnalyzer activeTelemetry={activeTelemetry} />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Map column */}
           <div>
-            {/* Action buttons bar */}
             <div className="flex flex-wrap justify-end gap-2 mb-2">
               <button
                 onClick={() => setShowPDFEvidence(true)}
@@ -301,27 +399,25 @@ function App() {
             />
           </div>
 
-          <PlotTelemetry />
+          <PlotTelemetry activeTelemetry={activeTelemetry} />
         </div>
 
         {/* Footer */}
-        <div className="mt-8 bg-white rounded-xl shadow-md p-6">
+        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">About AgriTrust AI</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">About AgriTrust AI (Version 3.0)</h3>
               <p className="text-gray-600 max-w-3xl text-sm">
-                AgriTrust AI is a parametric crop insurance platform on MST Blockchain.
-                Krishi Mitras register farmer plots → NEWRRO AI Sentinel oracle monitors
-                Sentinel-1 SAR + Sentinel-2 NDVI + IMD rainfall → 2-of-3 consensus →
-                EIP-191 signed proof → <code>triggerDisasterPayout()</code> →
-                ETH transferred to farmer's wallet in &lt;2 seconds.
+                AgriTrust AI V3 is a Multi-Hazard Parametric Crop Insurance &amp; Disaster Relief Escrow platform on MST Blockchain.
+                Monitors Sentinel-1 SAR (Floods) + Sentinel-2 NDWI (Flash Droughts) + Thermal LST (Heatwaves) + IMD rainfall →
+                2-of-3 Oracle Consensus → EIP-191 proof verification → instant MST payout in &lt;2 seconds.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                <span className="px-2 py-1 bg-blue-50   rounded">⛓ FarmRegistry Contract</span>
-                <span className="px-2 py-1 bg-purple-50 rounded">🏦 AgriTrustVault (ECDSA)</span>
-                <span className="px-2 py-1 bg-green-50  rounded">🛰 NEWRRO AI Sentinel Oracle</span>
-                <span className="px-2 py-1 bg-orange-50 rounded">📱 AePS Cashout (Aadhaar)</span>
-                <span className="px-2 py-1 bg-yellow-50 rounded">🌾 Krishi Mitra Enrollment</span>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">⛓ FarmRegistry &amp; AgriTrustVault</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">🛰 NEWRRO Multi-Hazard AI Oracle</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">🌊 Flood SAR + ☀️ Drought NDWI + 🔥 Heatwave LST</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">📱 AePS Micro-ATM Cashout (Aadhaar)</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">📄 Cryptographic PDF Audit Certificates</span>
               </div>
             </div>
             <div className="text-right">

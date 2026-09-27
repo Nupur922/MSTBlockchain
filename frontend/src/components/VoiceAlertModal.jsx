@@ -23,7 +23,7 @@ const buildMessages = (payoutAmount, plotId, stateName, coordinates) => {
     },
     {
       lang: 'en-IN',
-      text: `AgriTrust AI Emergency Alert. Your farm plot number ${plotId} has been affected by flooding. Emergency insurance payout of ${payoutAmount} Ethereum has been triggered automatically. Please visit your nearest AePS centre.`,
+      text: `AgriTrust AI Emergency Alert. Your farm plot number ${plotId} has been affected by a verified satellite disaster event. Emergency insurance payout of ${payoutAmount} MST Tokens has been triggered automatically. Please visit your nearest AePS centre.`,
     }
   ];
 };
@@ -226,8 +226,8 @@ const VoiceAlertModal = ({ isOpen, onClose, onOpenPDF, payoutAmount, plotId, sta
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
               <p className="font-semibold text-blue-800 mb-1">🔵 English — Tertiary</p>
               <p className="italic leading-relaxed">
-                "Your farm Plot #{plotId} has been flood-affected. Emergency payout of{' '}
-                <strong>{payoutAmount} ETH</strong> has been triggered automatically.
+                "Your farm Plot #{plotId} has been disaster-affected (satellite verified). Emergency payout of{' '}
+                <strong>{payoutAmount} MST</strong> has been triggered automatically.
                 Please visit your nearest AePS centre with Aadhaar."
               </p>
             </div>
