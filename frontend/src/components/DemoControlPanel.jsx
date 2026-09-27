@@ -45,11 +45,19 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
       iconClass: 'bg-white/20',
     },
     {
-      id: 'karnataka-flood',
-      label: 'Karnataka Flood',
-      description: 'Cauvery Basin Inundation — SAR: -18.2 dB, 70% Payout',
+      id: 'tn-harvest-rain',
+      label: 'TN Harvest Rain',
+      description: 'Samba Harvest Lodging — 180mm unseasonal rain during harvest',
       icon: CloudRain,
-      buttonClass: 'bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md hover:shadow-lg hover:scale-105',
+      buttonClass: 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md hover:shadow-lg hover:scale-105',
+      iconClass: 'bg-white/20',
+    },
+    {
+      id: 'harvest-confusion',
+      label: 'Harvest Stubble Shield',
+      description: 'NDVI 0.15 drop but SAR dry (-8dB) — 0 Payout (Claim Rejected)',
+      icon: AlertTriangle,
+      buttonClass: 'bg-gradient-to-br from-slate-600 to-gray-700 text-white shadow-md hover:shadow-lg hover:scale-105',
       iconClass: 'bg-white/20',
     },
   ];

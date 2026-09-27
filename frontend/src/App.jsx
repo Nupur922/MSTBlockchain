@@ -215,6 +215,50 @@ function App() {
         payout_ratio: 0.70,
         hazard_type: "MONSOON_FLOOD"
       });
+    } else if (scenarioId === 'tn-harvest-rain') {
+      mockAmount = '0.75';
+      mockPlotId = '6';
+      stateName = 'Tamil Nadu';
+      setActiveTelemetry({
+        ndvi_score: 0.20,
+        sar_backscatter_db: -11.0,
+        days_submerged: 0,
+        ndwi_score: 0.15,
+        lst_temp_c: 26.0,
+        status: "HARVEST_RAIN_CROP_LODGING",
+        payout_ratio: 0.75,
+        hazard_type: "HARVEST_RAIN_LODGING"
+      });
+    } else if (scenarioId === 'harvest-confusion') {
+      mockAmount = '0.00';
+      mockPlotId = '7';
+      stateName = 'Bihar';
+      setActiveTelemetry({
+        ndvi_score: 0.15,
+        sar_backscatter_db: -8.0,
+        days_submerged: 0,
+        ndwi_score: -0.10,
+        lst_temp_c: 28.0,
+        status: "NORMAL_DRY_HARVEST_STUBBLE",
+        payout_ratio: 0.0,
+        hazard_type: "NORMAL_HARVEST"
+      });
+      return; // No payout modal for normal harvest
+    } else if (scenarioId === 'ghost-crop-fraud') {
+      mockAmount = '0.00';
+      mockPlotId = '8';
+      stateName = 'Assam';
+      setActiveTelemetry({
+        ndvi_score: 0.55,
+        sar_backscatter_db: -7.5,
+        days_submerged: 0,
+        ndwi_score: 0.05,
+        lst_temp_c: 29.0,
+        status: "GHOST_CROP_WEED_FRAUD_FLAGGED",
+        payout_ratio: 0.0,
+        hazard_type: "GHOST_CROP_FRAUD_FLAGGED"
+      });
+      return; // No payout modal for fraud
     }
 
     setPayoutEvent({
