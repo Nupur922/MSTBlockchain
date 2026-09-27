@@ -42,7 +42,10 @@ const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, plotId, farmerAddress
 
         const publicKey = {
           challenge: challenge,
-          rp: { name: 'India Post AePS Aadhaar Terminal' },
+          rp: { 
+            name: 'India Post AePS Aadhaar Terminal',
+            id: window.location.hostname
+          },
           user: {
             id: userId,
             name: farmerAddress ? farmerAddress.slice(0, 10) : 'farmer_aadhaar',
@@ -50,14 +53,13 @@ const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, plotId, farmerAddress
           },
           pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
           authenticatorSelection: {
-            authenticatorAttachment: 'platform', // Triggers built-in mobile fingerprint / FaceID / TouchID
-            userVerification: 'required',
+            userVerification: 'preferred', // Triggers Android Fingerprint, iOS TouchID, FaceID, Windows Hello
           },
           timeout: 60000,
         };
 
         setProgress(50);
-        setStatusMessage('Touch the fingerprint sensor on your phone or device now...');
+        setStatusMessage('Select "Use a phone or tablet" in browser prompt & touch your phone sensor...');
 
         // This triggers the real system / Android / iOS fingerprint modal!
         const credential = await navigator.credentials.create({ publicKey });
