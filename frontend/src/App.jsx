@@ -96,7 +96,7 @@ function App() {
             proofHash:    proofHash,
             timestamp:    Number(timestamp),
           });
-          setShowVoice(true);
+          // Voice call placed live via Twilio API (no browser audio clash)
           setShowAePS(true);
         }
       );
@@ -271,7 +271,7 @@ function App() {
       stateName:    stateName,
     });
 
-    setShowVoice(true);
+    // Live Twilio phone call + WhatsApp dispatched via bridge server
     setShowAePS(true);
 
     try {
