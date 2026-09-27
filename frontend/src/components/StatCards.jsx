@@ -31,18 +31,18 @@ const StatCards = () => {
       ]);
 
       setData({
-        escrowBalance: parseFloat(ethers.formatEther(balanceWei)).toFixed(3) + ' ETH',
+        escrowBalance: parseFloat(ethers.formatEther(balanceWei)).toFixed(3) + ' MST',
         plotCount:     plotCount.toString(),
-        claimsPaid:    parseFloat(ethers.formatEther(claimsPaidWei)).toFixed(2) + ' ETH',
+        claimsPaid:    parseFloat(ethers.formatEther(claimsPaidWei)).toFixed(2) + ' MST',
         loading:       false,
         live:          true,
       });
     } catch {
       // Hardhat offline — fallback to mock
       setData({
-        escrowBalance: '500.000 ETH',
+        escrowBalance: '500.000 MST',
         plotCount:     '1,234',
-        claimsPaid:    '0.00 ETH',
+        claimsPaid:    '0.00 MST',
         loading:       false,
         live:          false,
       });

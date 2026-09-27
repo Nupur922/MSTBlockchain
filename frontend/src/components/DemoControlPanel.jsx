@@ -14,7 +14,7 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
     {
       id: 'assam-flood',
       label: 'Simulate Assam Flood',
-      description: 'Majuli Island (Brahmaputra) — primary language: Assamese',
+      description: 'Majuli Island (Brahmaputra) — Sentinel-1 SAR: -22.4 dB',
       icon: CloudRain,
       color: 'bg-emerald-600 hover:bg-emerald-700',
       textColor: 'text-emerald-700',
@@ -22,42 +22,34 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
     {
       id: 'bihar-flood',
       label: 'Simulate Bihar Flood',
-      description: 'Darbhanga / Kosi Basin — primary language: Bhojpuri',
+      description: 'Darbhanga / Kosi Basin — 100% Payout, 9 days submerged',
       icon: AlertTriangle,
       color: 'bg-red-500 hover:bg-red-600',
       textColor: 'text-red-700',
     },
     {
-      id: 'maharashtra-flood',
-      label: 'Simulate Maharashtra Flood',
-      description: 'Nashik / Godavari Basin — primary language: Marathi',
+      id: 'maharashtra-drought',
+      label: 'Maharashtra Drought',
+      description: 'Marathwada Flash Drought — NDWI: -0.45, 50% Payout',
       icon: CloudRain,
       color: 'bg-orange-500 hover:bg-orange-600',
       textColor: 'text-orange-700',
     },
     {
-      id: 'gujarat-flood',
-      label: 'Simulate Gujarat Flood',
-      description: 'Anand / Narmada Basin — primary language: Gujarati',
+      id: 'punjab-heatwave',
+      label: 'Punjab Heatwave',
+      description: 'Scorching Wheat Stress — LST: 44.2°C, 40% Payout',
       icon: AlertTriangle,
       color: 'bg-amber-600 hover:bg-amber-700',
       textColor: 'text-amber-700',
     },
     {
       id: 'karnataka-flood',
-      label: 'Simulate Karnataka Flood',
-      description: 'Mandya / Cauvery Basin — primary language: Kannada',
+      label: 'Karnataka Flood',
+      description: 'Cauvery Basin Inundation — SAR: -18.2 dB, 70% Payout',
       icon: CloudRain,
       color: 'bg-indigo-600 hover:bg-indigo-700',
       textColor: 'text-indigo-700',
-    },
-    {
-      id: 'punjab-flood',
-      label: 'Simulate Punjab Flood',
-      description: 'Ludhiana / Sutlej Basin — primary language: Punjabi',
-      icon: AlertTriangle,
-      color: 'bg-purple-600 hover:bg-purple-700',
-      textColor: 'text-purple-700',
     },
   ];
 
@@ -114,8 +106,8 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
           <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm text-yellow-800">
-              <span className="font-semibold">Note:</span> These buttons simulate the Python AI Oracle agent's flood detection. 
-              In production, the sentinel_agent.py monitors Sentinel-1 SAR data and automatically triggers emergency payouts.
+              <span className="font-semibold">Note:</span> These buttons simulate the Python AI Oracle agent's multi-hazard detection (Flood SAR, Drought NDWI, Heatwave LST). 
+              In production, the sentinel_agent.py monitors Sentinel-1/2 satellite data and automatically triggers parametric payouts in &lt;2 seconds.
             </p>
           </div>
         </div>

@@ -279,7 +279,7 @@ const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, plotId, farmerAddress
                     </span>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-0.5">
-                    Converted from {payoutAmount || '0.75'} ETH relief fund
+                    Converted from {payoutAmount || '0.75'} MST relief fund
                   </p>
                 </div>
               </div>

@@ -67,7 +67,7 @@ const StatusIndicator = ({ label, status, description }) => {
   );
 };
 
-const PlotTelemetry = () => {
+const PlotTelemetry = ({ activeTelemetry }) => {
   // Mock telemetry data - satellite feeds: Sentinel-2 NDVI, Sentinel-1 SAR, Sentinel-2 NDWI
   const [telemetry, setTelemetry] = useState({
     ndvi: 0.72, // Normalized Difference Vegetation Index (0.0 - 1.0)
@@ -76,8 +76,26 @@ const PlotTelemetry = () => {
     soilMoisture: 0.65, // Soil moisture (0.0 - 1.0)
   });
 
-  // Simulate real-time updates
+  // When activeTelemetry from disaster scenario is present, override local state
   useEffect(() => {
+    if (activeTelemetry && activeTelemetry.hazard_type && activeTelemetry.hazard_type !== 'NONE') {
+      // Map multi-hazard engine values → PlotTelemetry gauge values
+      const sarNormalized = Math.max(0, Math.min(1, (activeTelemetry.sar_backscatter_db + 30) / 15));
+      setTelemetry({
+        ndvi: activeTelemetry.ndvi_score ?? 0.72,
+        sarFloodInundation: sarNormalized,
+        ndwiDrought: activeTelemetry.ndwi_score ?? -0.12,
+        soilMoisture: Math.max(0, Math.min(1, (activeTelemetry.ndwi_score + 1) / 2)),
+      });
+    } else if (activeTelemetry && activeTelemetry.hazard_type === 'NONE') {
+      // Reset to healthy baseline
+      setTelemetry({ ndvi: 0.72, sarFloodInundation: 0.15, ndwiDrought: -0.12, soilMoisture: 0.65 });
+    }
+  }, [activeTelemetry]);
+
+  // Simulate real-time micro-jitter updates (only when no active disaster)
+  useEffect(() => {
+    if (activeTelemetry && activeTelemetry.hazard_type && activeTelemetry.hazard_type !== 'NONE') return;
     const interval = setInterval(() => {
       setTelemetry((prev) => ({
         ndvi: Math.max(0, Math.min(1, prev.ndvi + (Math.random() - 0.5) * 0.05)),
@@ -88,7 +106,7 @@ const PlotTelemetry = () => {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [activeTelemetry]);
 
   // Determine status based on telemetry
   const getFloodStatus = () => {
