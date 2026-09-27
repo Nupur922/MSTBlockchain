@@ -358,12 +358,12 @@ class VoiceNotifier:
         """
         # Fallback to configured target phone number if dummy or empty
         env_to = (
-            os.getenv("TWILIO_TO_PHONE_NUMBER")
-            or os.getenv("TWILIO_VERIFIED_TO_NUMBER")
+            os.getenv("TWILIO_VERIFIED_TO_NUMBER")
+            or os.getenv("TWILIO_TO_PHONE_NUMBER")
             or os.getenv("FARMER_PHONE_NUMBER")
             or "+917483799325"
         ).strip()
-        if not to_phone_number or "+919999999999" in to_phone_number:
+        if env_to:
             to_phone_number = env_to
 
         # Automatic Regional Language Detection
@@ -638,7 +638,7 @@ class VoiceNotifier:
             or os.getenv("TWILIO_TO_PHONE_NUMBER", "").strip()
             or os.getenv("FARMER_PHONE_NUMBER", "").strip()
         )
-        if (not to_phone_number or "+919999999999" in to_phone_number) and env_to:
+        if env_to:
             to_phone_number = env_to
 
         clean_number = "".join(filter(str.isdigit, to_phone_number))
