@@ -282,6 +282,81 @@ python agent/test_agent.py
 
 ---
 
+### Step 4b: Developer 1 → Developer 2 Handoff (3 Prerequisites)
+
+The blockchain dev ("Developer 1") hands the oracle agent ("Developer 2") exactly
+**three things**. `scripts/deploy.js` produces the first two automatically.
+
+| # | What Developer 2 needs | Where it lands | Produced by |
+|---|---|---|---|
+| 1 | `FarmRegistry` + `AgriTrustVault` addresses | `agent/config/contracts.json` | `deploy.js` (auto) |
+| 2 | Oracle wallet granted `ORACLE_ROLE` | on-chain on `AgriTrustVault` | `deploy.js` (grants **and verifies**) |
+| 3 | RPC URL | `MST_RPC_URL` in `.env` | `deploy.js` (auto) |
+
+**1. `agent/config/contracts.json`** — flat shape, exactly as the integration spec requires:
+
+```json
+{
+  "FarmRegistry": "0x...",
+  "AgriTrustVault": "0x..."
+}
+```
+
+`contract-addresses.json` keeps the richer `{network, chainId, contracts, accounts}`
+shape because `frontend/src/utils/web3.js` reads `.contracts.FarmRegistry` from it.
+
+**2. `ORACLE_ROLE`** — `deploy.js` derives the oracle address from
+`ORACLE_PRIVATE_KEY`, calls `vault.grantRole(ORACLE_ROLE, oracle)`, then
+**verifies** it with `vault.hasRole(...)`. If the grant did not take, the deploy
+throws instead of letting every later payout revert with
+`AccessControl: account ... is missing role`.
+
+**3. RPC URL** — `MST_RPC_URL=http://127.0.0.1:8545` is written into both the root
+`.env` and `agent/config/.env`.
+
+`deploy.js` rewrites all of the above in one pass, so after a deploy the two
+`.env` files and `contracts.json` always agree. Address precedence in the agent is:
+
+```
+CLI flag  >  .env (FARM_REGISTRY_ADDRESS / AGRI_TRUST_VAULT_ADDRESS)  >  contracts.json
+```
+
+`.env` outranks `contracts.json` so a hand-edited `.env` always wins.
+
+**Preflight — verify all three before spending gas or placing a call:**
+
+```bash
+python agent/sentinel_agent.py --check
+```
+
+```
+[1] Contract addresses
+      ✅ FarmRegistry    0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00
+      ✅ AgriTrustVault  0x36C02dA8a0983159322a80FFE9F24b1acfF8B570
+[2] RPC endpoint  (http://127.0.0.1:8545)
+      ✅ connected — chainId 31337
+      ✅ FarmRegistry    bytecode present (7002 bytes)
+      ✅ AgriTrustVault  bytecode present (6053 bytes)
+[3] ORACLE_ROLE on AgriTrustVault
+      ✅ oracle 0x1d9e8dcD48A6461082fF16790512D4c38D4eed27 holds ORACLE_ROLE
+      ✅ oracle gas balance 199.98 MST
+----------------------------------------------------------------------
+  ✅ ALL 3 PREREQUISITES OK — safe to run: python agent/sentinel_agent.py --once
+----------------------------------------------------------------------
+```
+
+It exits `0` when everything checks out and `1` otherwise (missing address,
+stale address with no bytecode, node down, missing role, or zero gas), printing
+the fix for each failure. It sends **no transactions and places no phone call**.
+
+Only once preflight is green, run the live demo:
+
+```bash
+python agent/sentinel_agent.py --once
+```
+
+---
+
 ### Step 5: Launch the Complete Stack
 
 Open 4 separate terminals:

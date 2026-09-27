@@ -34,6 +34,13 @@ try:
 except Exception:  # pragma: no cover - dotenv is optional
     pass
 
+# ── Windows console: cp1252 cannot encode ✅/❌/🛰 — force UTF-8 output ───────
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # pragma: no cover - non-tty or exotic streams
+        pass
+
 # ---------------------------------------------------------------------------
 # Logging — coloured console output for demo visibility
 # ---------------------------------------------------------------------------
@@ -252,15 +259,19 @@ class SentinelAgent:
             return a
 
         self.farm_registry_address = (
-            _valid(farm_registry_address)
-            or _valid(cfg.get("FarmRegistry"))
-            or _valid(os.getenv("FARM_REGISTRY_ADDRESS"))
+            _valid(farm_registry_address)                          # 1. --registry flag
+            or _valid(os.getenv("FARM_REGISTRY_ADDRESS"))          # 2. .env (spec: Dev 1 handoff)
+            or _valid(cfg.get("FarmRegistry"))                     # 3. contracts.json
         )
         self.vault_address = (
-            _valid(vault_address)
-            or _valid(cfg.get("AgriTrustVault"))
-            or _valid(os.getenv("AGRI_TRUST_VAULT_ADDRESS"))
+            _valid(vault_address)                                  # 1. --vault flag
+            or _valid(os.getenv("AGRI_TRUST_VAULT_ADDRESS"))       # 2. .env (spec: Dev 1 handoff)
+            or _valid(cfg.get("AgriTrustVault"))                   # 3. contracts.json
         )
+        # NOTE: .env outranks contracts.json so the documented handoff flow
+        # ("update .env, then run --once") actually takes effect. deploy.js
+        # rewrites both files in the same pass, so they agree after a deploy;
+        # when a developer hand-edits .env, that edit must win.
 
         # Private key: env var > constructor arg > Hardhat demo key
         pk = oracle_private_key or os.environ.get("ORACLE_PRIVATE_KEY")
@@ -831,6 +842,125 @@ class SentinelAgent:
             tx,
         )
 
+    def preflight_check(self) -> bool:
+        """
+        Verify the three Developer-1 -> Developer-2 handoff prerequisites
+        WITHOUT spending gas or placing a phone call:
+
+          1. Contract addresses resolve (contracts.json / .env / CLI flags)
+          2. RPC endpoint answers and bytecode actually exists at both addresses
+          3. This agent's oracle wallet holds ORACLE_ROLE on the vault
+             (without it every triggerDisasterPayout reverts)
+
+        Returns True when the live demo is safe to run.
+        """
+        print("\n" + "=" * 70)
+        print("  AGENT PREFLIGHT — Developer 1 handoff prerequisites")
+        print("=" * 70)
+        ok = True
+
+        # -- 1. Contract addresses -------------------------------------------
+        print("\n[1] Contract addresses")
+        for label, addr in (
+            ("FarmRegistry", self.farm_registry_address),
+            ("AgriTrustVault", self.vault_address),
+        ):
+            if addr:
+                print(f"      ✅ {label:15s} {addr}")
+            else:
+                ok = False
+                print(f"      ❌ {label:15s} NOT SET")
+                print("           Fix: add it to agent/config/contracts.json or .env")
+        if not self.farm_registry_address or not self.vault_address:
+            print("      → Ask Developer 1 for both addresses, or re-run")
+            print("        `npx hardhat run scripts/deploy.js --network localhost`")
+            print("        (deploy.js rewrites contracts.json and .env automatically)")
+
+        # -- 2. RPC + bytecode ------------------------------------------------
+        print(f"\n[2] RPC endpoint  ({self.rpc_url})")
+        w3 = None
+        try:
+            from web3 import Web3
+
+            w3 = Web3(Web3.HTTPProvider(self.rpc_url, request_kwargs={"timeout": 10}))
+            if not w3.is_connected():
+                raise ConnectionError("no response")
+            chain_id = w3.eth.chain_id
+            print(f"      ✅ connected — chainId {chain_id}")
+            if chain_id != self.chain_id:
+                print(f"      ⚠️  configured MST_CHAIN_ID={self.chain_id} but node says {chain_id}")
+            for label, addr in (
+                ("FarmRegistry", self.farm_registry_address),
+                ("AgriTrustVault", self.vault_address),
+            ):
+                if not addr:
+                    continue
+                code = w3.eth.get_code(Web3.to_checksum_address(addr))
+                if code and len(code) > 2:
+                    print(f"      ✅ {label:15s} bytecode present ({len(code)} bytes)")
+                else:
+                    ok = False
+                    print(f"      ❌ {label:15s} NO CODE at {addr} — stale address?")
+                    print("           Fix: re-run scripts/deploy.js (chain was probably restarted)")
+        except Exception as exc:
+            ok = False
+            print(f"      ❌ cannot reach node: {exc}")
+            print("           Fix: start it with `npx hardhat node`")
+
+        # -- 3. ORACLE_ROLE ---------------------------------------------------
+        print("\n[3] ORACLE_ROLE on AgriTrustVault")
+        if w3 is None or not self.vault_address or not self._signer:
+            ok = False
+            print("      ❌ skipped — need a live node, a vault address and an oracle key")
+        else:
+            try:
+                vault = w3.eth.contract(
+                    address=Web3.to_checksum_address(self.vault_address),
+                    abi=[{
+                        "inputs": [],
+                        "name": "ORACLE_ROLE",
+                        "outputs": [{"internalType": "bytes32", "name": "", "type": "bytes32"}],
+                        "stateMutability": "view",
+                        "type": "function",
+                    }, {
+                        "inputs": [
+                            {"internalType": "bytes32", "name": "role", "type": "bytes32"},
+                            {"internalType": "address", "name": "account", "type": "address"},
+                        ],
+                        "name": "hasRole",
+                        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+                        "stateMutability": "view",
+                        "type": "function",
+                    }],
+                )
+                role = vault.functions.ORACLE_ROLE().call()
+                signer = Web3.to_checksum_address(self._signer.address)
+                if vault.functions.hasRole(role, signer).call():
+                    print(f"      ✅ oracle {signer} holds ORACLE_ROLE")
+                    bal = w3.eth.get_balance(signer)
+                    print(f"      ✅ oracle gas balance {w3.from_wei(bal, 'ether')} MST")
+                    if bal == 0:
+                        ok = False
+                        print("      ❌ oracle has zero gas — payout tx will fail to send")
+                else:
+                    ok = False
+                    print(f"      ❌ {signer} does NOT hold ORACLE_ROLE")
+                    print("           Fix: re-run scripts/deploy.js — it grants the role from")
+                    print("           ORACLE_PRIVATE_KEY and verifies it before finishing.")
+            except Exception as exc:
+                ok = False
+                print(f"      ❌ role check failed: {exc}")
+
+        # -- summary ----------------------------------------------------------
+        print("\n" + "-" * 70)
+        if ok:
+            print("  ✅ ALL 3 PREREQUISITES OK — safe to run: python agent/sentinel_agent.py --once")
+        else:
+            print("  ❌ PREREQUISITES MISSING — fix the ❌ items above before running --once.")
+        print("-" * 70)
+        print("=" * 70 + "\n")
+        return ok
+
     def start(self, max_cycles: Optional[int] = None) -> None:
         """
         Start the continuous monitoring loop.
@@ -874,8 +1004,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--rpc",
-        default=DEFAULT_RPC_URL,
-        help=f"MST node RPC URL (default: {DEFAULT_RPC_URL})",
+        default=None,
+        help=(
+            "MST node RPC URL. Omit to use MST_RPC_URL from .env "
+            f"(falls back to {DEFAULT_RPC_URL})."
+        ),
     )
     parser.add_argument(
         "--key",
@@ -898,6 +1031,14 @@ if __name__ == "__main__":
         help="Run a single monitoring cycle then exit.",
     )
     parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Preflight only: verify contract addresses, RPC reachability and "
+            "ORACLE_ROLE, then exit without spending gas or placing a call."
+        ),
+    )
+    parser.add_argument(
         "--demo",
         action="store_true",
         help="Run in interactive demo monitoring mode.",
@@ -917,6 +1058,10 @@ if __name__ == "__main__":
         rpc_url=args.rpc,
         poll_interval=args.interval,
     )
+
+    if args.check:
+        # Read-only: no transactions, no phone calls.
+        sys.exit(0 if agent.preflight_check() else 1)
 
     if args.once:
         agent.run_once()

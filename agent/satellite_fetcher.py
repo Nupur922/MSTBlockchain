@@ -311,6 +311,14 @@ class Sentinel2Client:
                     {
                         "type": "sentinel-2-l2a",
                         "dataFilter": {"mosaickingOrder": "leastCC"},
+                        # NOTE: resx/resy belong to input.data[], NOT aggregation.
+                        # Copernicus ignores them under "aggregation" and then
+                        # fails with "Pixel size of 2840.83 meters per pixel
+                        # exceeds the limit 1500.00" (it renders 1 px across the
+                        # whole field). Declared here the statistics call returns
+                        # HTTP 200 with real band statistics.
+                        "resx": 10,
+                        "resy": 10,
                     }
                 ],
             },
@@ -318,8 +326,6 @@ class Sentinel2Client:
                 "timeRange": {"from": from_date, "to": to_date},
                 "aggregationInterval": {"of": "P10D"},
                 "evalscript": EVALSCRIPT_S2_NDVI,
-                "resx": 10,
-                "resy": 10,
             },
         }
 
@@ -493,10 +499,19 @@ class Sentinel1SARClient:
                             "acquisitionMode": "IW",
                             "polarization": "DV",
                         },
+                        # resx/resy must be here (input.data[]), not under
+                        # "aggregation" — see the Sentinel-2 NDVI payload note.
+                        "resx": 10,
+                        "resy": 10,
                         "processing": {
                             "backCoeff": "GAMMA0_TERRAIN",
                             "orthorectify": True,
-                            "demInstance": "MAPZEN",
+                            # MAPZEN was rejected by the CDSE statistics API with
+                            # "DEM instance MAPZEN is not supported here!" (HTTP 400),
+                            # which silently forced every SAR reading onto the
+                            # simulated fallback. COPERNICUS_30 is the supported
+                            # DEM and keeps full orthorectified terrain correction.
+                            "demInstance": "COPERNICUS_30",
                             "speckleFilter": {
                                 "type": "LEE",
                                 "windowSizeX": 5,
@@ -510,8 +525,6 @@ class Sentinel1SARClient:
                 "timeRange": {"from": from_date, "to": to_date},
                 "aggregationInterval": {"of": "P6D"},  # ~Sentinel-1 revisit
                 "evalscript": EVALSCRIPT_S1_SAR,
-                "resx": 10,
-                "resy": 10,
             },
         }
 
@@ -695,14 +708,22 @@ class Sentinel2SWIRClient:
                         else geojson_polygon
                     ),
                 },
-                "data": [{"type": "sentinel-2-l2a", "dataFilter": {"mosaickingOrder": "leastCC"}}],
+                "data": [
+                    {
+                        "type": "sentinel-2-l2a",
+                        "dataFilter": {"mosaickingOrder": "leastCC"},
+                        # B11 is native 20 m — must be declared on input.data[]
+                        # (not aggregation) or the API 400s. See the Sentinel-2
+                        # NDVI payload note above.
+                        "resx": 20,
+                        "resy": 20,
+                    }
+                ],
             },
             "aggregation": {
                 "timeRange": {"from": from_date, "to": to_date},
                 "aggregationInterval": {"of": "P10D"},
                 "evalscript": EVALSCRIPT_S2_SWIR,
-                "resx": 20,  # B11 is 20m resolution
-                "resy": 20,
             },
         }
 
