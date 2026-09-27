@@ -214,27 +214,38 @@ class SentinelAgent:
     def _load_config(self, config_dir: Optional[str]) -> dict:
         """
         Try to load deployed contract addresses from:
-          agent/config/contracts.json  (written by Developer 1's deploy script)
+          agent/config/contracts.json or contract-addresses.json
         """
         search_dirs = []
         if config_dir:
             search_dirs.append(Path(config_dir))
-        # Default: look relative to this file
         search_dirs.append(Path(__file__).parent / "config")
+        search_dirs.append(Path(__file__).parent.parent / "frontend" / "src" / "contracts")
 
         for d in search_dirs:
-            cfg_file = d / "contracts.json"
-            if cfg_file.exists():
-                try:
-                    with open(cfg_file) as f:
-                        data = json.load(f)
-                    logger.info("📄  Loaded contract config from %s", cfg_file)
-                    return data
-                except Exception as exc:
-                    logger.warning("⚠️  Could not read %s: %s", cfg_file, exc)
+            for fname in ["contracts.json", "contract-addresses.json"]:
+                cfg_file = d / fname
+                if cfg_file.exists():
+                    try:
+                        with open(cfg_file) as f:
+                            data = json.load(f)
+                        logger.info("📄  Loaded contract config from %s", cfg_file)
+                        
+                        # Normalize nested format if present (e.g. {"contracts": {"FarmRegistry": "0x..."}})
+                        result = {}
+                        if "contracts" in data and isinstance(data["contracts"], dict):
+                            result["FarmRegistry"] = data["contracts"].get("FarmRegistry")
+                            result["AgriTrustVault"] = data["contracts"].get("AgriTrustVault")
+                        if "FarmRegistry" in data:
+                            result["FarmRegistry"] = data["FarmRegistry"]
+                        if "AgriTrustVault" in data:
+                            result["AgriTrustVault"] = data["AgriTrustVault"]
+                            
+                        return result
+                    except Exception as exc:
+                        logger.warning("⚠️  Could not read %s: %s", cfg_file, exc)
 
-        # No config file found — return empty dict (demo mode)
-        logger.info("📄  No contracts.json found — running in demo/simulation mode.")
+        logger.info("📄  No contract address config found — running in demo/simulation mode.")
         return {}
 
     # ------------------------------------------------------------------
