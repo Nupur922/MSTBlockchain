@@ -35,12 +35,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             data = json.loads(body.decode("utf-8")) if body else {}
 
             scenario = data.get("scenario", "assam-flood")
-            target_phone = (
-                data.get("phone")
-                or os.getenv("TWILIO_VERIFIED_TO_NUMBER")
-                or os.getenv("TWILIO_TO_PHONE_NUMBER")
-                or "+917483799325"
-            )
+            env_target = os.getenv("TWILIO_VERIFIED_TO_NUMBER") or os.getenv("TWILIO_TO_PHONE_NUMBER")
+            target_phone = env_target if env_target else (data.get("phone") or "+917483799325")
 
             if "bihar" in scenario:
                 farmer_name = "Ram Singh"
