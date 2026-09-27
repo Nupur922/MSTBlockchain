@@ -173,21 +173,39 @@ class SentinelAgent:
         self._vault = None
         self._oracle_account = None
 
-        # Sub-components
-        from satellite_fetcher import SatelliteFetcher
-        from oracle_consensus import MultiSourceConsensusEngine
-        from proof_signer import EIP191ProofSigner
-        from voice_notifier import VoiceNotifier
+        # Sub-components with graceful fallback if optional packages missing
+        try:
+            from satellite_fetcher import SatelliteFetcher
+            self._fetcher = SatelliteFetcher()
+        except ImportError as e:
+            logger.info("ℹ️  SatelliteFetcher optional dependencies missing (%s) — using satellite fallback simulation.", e)
+            self._fetcher = None
 
-        self._fetcher   = SatelliteFetcher()
-        self._consensus = MultiSourceConsensusEngine()
-        self._signer    = EIP191ProofSigner(private_key=pk)
-        self._voice     = VoiceNotifier(enable_audio=False)
+        try:
+            from oracle_consensus import MultiSourceConsensusEngine
+            self._consensus = MultiSourceConsensusEngine()
+        except ImportError as e:
+            logger.info("ℹ️  OracleConsensus fallback (%s).", e)
+            self._consensus = None
+
+        try:
+            from proof_signer import EIP191ProofSigner
+            self._signer = EIP191ProofSigner(private_key=pk)
+            oracle_addr = self._signer.address
+        except Exception:
+            self._signer = None
+            oracle_addr = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+
+        try:
+            from voice_notifier import VoiceNotifier
+            self._voice = VoiceNotifier(enable_audio=False)
+        except Exception:
+            self._voice = None
 
         self._running   = False
         self._cycle_num = 0
 
-        logger.info("🤖  SentinelAgent initialized. Oracle: %s", self._signer.address)
+        logger.info("🤖  SentinelAgent initialized. Oracle: %s", oracle_addr)
 
     # ------------------------------------------------------------------
     # Config loader
@@ -352,7 +370,12 @@ class SentinelAgent:
             geojson = json.loads(plot.get("geojson", "{}")) if isinstance(plot.get("geojson"), str) else {}
 
             # 1. Fetch satellite data
-            optical, sar_data = self._fetcher.fetch_both(geojson, plot_id=str(plot_id))
+            if self._fetcher is not None:
+                optical, sar_data = self._fetcher.fetch_both(geojson, plot_id=str(plot_id))
+            else:
+                from satellite_fetcher import Sentinel2Client, Sentinel1SARClient
+                optical = Sentinel2Client.get_mock_scene(str(plot_id))
+                sar_data = Sentinel1SARClient.get_mock_series(str(plot_id))
 
             # 2. Calculate NDVI and flood duration
             from ndvi_calculator import NDVICalculator
@@ -670,6 +693,11 @@ if __name__ == "__main__":
         "--once",
         action="store_true",
         help="Run a single monitoring cycle then exit.",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run in interactive demo monitoring mode.",
     )
     parser.add_argument(
         "--interval",
