@@ -1,13 +1,29 @@
 import '@nomicfoundation/hardhat-toolbox';
-import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config({ path: path.join(__dirname, 'agent/config/.env') });
+// Simple env file reader (no external dependency requirement)
+function loadEnvFile(filePath) {
+  if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+        const [key, ...vals] = trimmed.split('=');
+        if (key && !process.env[key.trim()]) {
+          process.env[key.trim()] = vals.join('=').trim().replace(/^["']|["']$/g, '');
+        }
+      }
+    });
+  }
+}
+
+loadEnvFile(path.join(__dirname, '.env'));
+loadEnvFile(path.join(__dirname, 'agent/config/.env'));
 
 const ORACLE_PRIVATE_KEY = process.env.ORACLE_PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const MST_RPC_URL = process.env.MST_RPC_URL || "http://127.0.0.1:8545";
