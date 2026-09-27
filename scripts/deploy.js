@@ -60,6 +60,12 @@ async function main() {
   const vaultAddress = await vault.getAddress();
   console.log('✅ AgriTrustVault deployed to MST Blockchain at:', vaultAddress);
 
+  // Grant ORACLE_ROLE explicitly to oracleAddress
+  const ORACLE_ROLE = await vault.ORACLE_ROLE();
+  const grantTx = await vault.grantRole(ORACLE_ROLE, oracleAddress);
+  await grantTx.wait();
+  console.log('🔑 Granted ORACLE_ROLE on AgriTrustVault to Oracle Address:', oracleAddress);
+
   // 3. Register sample farm plots WITH government land-record identifiers (V2.0)
   const samplePlots = [
     {
@@ -172,10 +178,34 @@ async function main() {
   fs.writeFileSync(path.join(agentOutputDir, 'FarmRegistry.json'), JSON.stringify(registryArtifact, null, 2));
   fs.writeFileSync(path.join(agentOutputDir, 'AgriTrustVault.json'), JSON.stringify(vaultArtifact, null, 2));
 
+  // Helper to update .env files automatically
+  function updateEnvFile(envPath, updates) {
+    let content = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+    for (const [key, value] of Object.entries(updates)) {
+      const regex = new RegExp(`^${key}=.*$`, 'm');
+      if (regex.test(content)) {
+        content = content.replace(regex, `${key}=${value}`);
+      } else {
+        content += `\n${key}=${value}`;
+      }
+    }
+    fs.writeFileSync(envPath, content, 'utf8');
+  }
+
+  const envUpdates = {
+    FARM_REGISTRY_ADDRESS: registryAddress,
+    AGRI_TRUST_VAULT_ADDRESS: vaultAddress,
+    MST_RPC_URL: 'http://127.0.0.1:8545',
+  };
+
+  updateEnvFile(path.join(ROOT, '.env'), envUpdates);
+  updateEnvFile(path.join(agentOutputDir, '.env'), envUpdates);
+
   console.log('\n=========================================================================');
-  console.log('✅ ALL DEPLOYMENT ARTIFACTS SUCCESSFULLY EXPORTED TO FRONTEND & AGENT!');
+  console.log('✅ ALL DEPLOYMENT ARTIFACTS & .ENV CONFIGS UPDATED!');
   console.log('   FarmRegistry :', registryAddress);
   console.log('   AgriTrustVault:', vaultAddress);
+  console.log('   MST RPC URL   : http://127.0.0.1:8545');
   console.log('=========================================================================');
 }
 
