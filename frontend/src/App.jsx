@@ -271,7 +271,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/20 to-teal-50/10">
       <Header />
 
       {/* ── Modals ── */}
@@ -359,7 +359,7 @@ function App() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 bg-white rounded-xl shadow-md p-6">
+        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">About AgriTrust AI (Version 3.0)</h3>
@@ -368,12 +368,12 @@ function App() {
                 Monitors Sentinel-1 SAR (Floods) + Sentinel-2 NDWI (Flash Droughts) + Thermal LST (Heatwaves) + IMD rainfall →
                 2-of-3 Oracle Consensus → EIP-191 proof verification → instant MST payout in &lt;2 seconds.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                <span className="px-2 py-1 bg-blue-50   rounded">⛓ FarmRegistry &amp; AgriTrustVault</span>
-                <span className="px-2 py-1 bg-purple-50 rounded">🛰 NEWRRO Multi-Hazard AI Oracle</span>
-                <span className="px-2 py-1 bg-green-50  rounded">🌊 Flood SAR + ☀️ Drought NDWI + 🔥 Heatwave LST</span>
-                <span className="px-2 py-1 bg-orange-50 rounded">📱 AePS Micro-ATM Cashout (Aadhaar)</span>
-                <span className="px-2 py-1 bg-yellow-50 rounded">📄 Cryptographic PDF Audit Certificates</span>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">⛓ FarmRegistry &amp; AgriTrustVault</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">🛰 NEWRRO Multi-Hazard AI Oracle</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">🌊 Flood SAR + ☀️ Drought NDWI + 🔥 Heatwave LST</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">📱 AePS Micro-ATM Cashout (Aadhaar)</span>
+                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">📄 Cryptographic PDF Audit Certificates</span>
               </div>
             </div>
             <div className="text-right">

@@ -173,11 +173,11 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-5 text-white flex-shrink-0">
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-5 text-white flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="bg-white/20 p-2 rounded-lg">
@@ -185,10 +185,10 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
               </div>
               <div>
                 <h2 className="font-bold text-lg">Krishi Mitra — Farm Enrollment</h2>
-                <p className="text-xs text-green-100">Register a new farm plot on MST Blockchain</p>
+                <p className="text-xs text-emerald-100">Register a new farm plot on MST Blockchain</p>
               </div>
             </div>
-            <button onClick={handleClose} className="text-white/70 hover:text-white">
+            <button onClick={handleClose} className="text-white/70 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -208,7 +208,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
 
               {/* Farmer Wallet */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Farmer Wallet Address *
                 </label>
                 <input
@@ -216,10 +216,10 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                   value={farmerWallet}
                   onChange={e => setFarmerWallet(e.target.value.trim())}
                   placeholder="0x..."
-                  className={`w-full px-3 py-2.5 border rounded-xl text-sm font-mono transition-colors
+                  className={`w-full px-4 py-2.5 bg-gray-50 border-2 rounded-xl text-sm font-mono transition-all focus:outline-none focus:bg-white
                     ${farmerWallet && !isValidAddress(farmerWallet)
-                      ? 'border-red-400 bg-red-50'
-                      : 'border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500'}`}
+                      ? 'border-red-400 bg-red-50 focus:border-red-400'
+                      : 'border-gray-200 focus:border-emerald-400'}`}
                 />
                 {farmerWallet && !isValidAddress(farmerWallet) && (
                   <p className="text-xs text-red-600 mt-1">Invalid Ethereum address</p>
@@ -227,19 +227,19 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                 <p className="text-xs text-gray-400 mt-1">
                   Try Hardhat account #2: <button
                     onClick={() => setFarmerWallet('0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC')}
-                    className="text-green-600 underline">fill demo</button>
+                    className="text-emerald-600 underline">fill demo</button>
                 </p>
               </div>
 
               {/* Crop Type */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Crop Type *
                 </label>
                 <select
                   value={cropType}
                   onChange={e => setCropType(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
                 >
                   {CROP_TYPES.map(c => <option key={c}>{c}</option>)}
                 </select>
@@ -247,7 +247,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
 
               {/* Acreage */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
                   Acreage (acres) *
                 </label>
                 <input
@@ -257,30 +257,30 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                   value={acreageStr}
                   onChange={e => setAcreageStr(e.target.value)}
                   placeholder="e.g. 2.5"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-sm focus:outline-none focus:border-emerald-400 focus:bg-white transition-all"
                 />
                 <p className="text-xs text-gray-400 mt-1">Stored as ×100 in Solidity (e.g. 2.5 acres → 250)</p>
               </div>
 
               {/* GeoJSON */}
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-1.5">
                   <label className="text-sm font-semibold text-gray-700 flex items-center space-x-1">
-                    <MapPin className="w-3.5 h-3.5 text-green-600" />
+                    <MapPin className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Polygon GeoJSON *</span>
                   </label>
                   <span className="text-xs text-gray-400">Quick-fill:</span>
                 </div>
                 {/* Preset buttons */}
-                <div className="flex flex-wrap gap-2 mb-2">
+                <div className="flex flex-wrap gap-1.5 mb-2">
                   {GEO_PRESETS.map((p, i) => (
                     <button
                       key={i}
                       type="button"
                       onClick={() => setGeoJson(p.geoJson)}
-                      className="px-2.5 py-1 bg-green-50 hover:bg-green-100 border border-green-200 text-green-800 text-xs rounded-lg transition-colors font-medium flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs rounded-lg transition-colors font-medium flex items-center space-x-1"
                     >
-                      <span className="font-semibold text-green-900">{p.state}:</span>
+                      <span className="font-semibold text-emerald-900">{p.state}:</span>
                       <span>{p.label.split(',')[0]}</span>
                     </button>
                   ))}
@@ -290,10 +290,10 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                   onChange={e => setGeoJson(e.target.value)}
                   placeholder={'{\n  "type": "Polygon",\n  "coordinates": [[[lng,lat]...]]\n}'}
                   rows={5}
-                  className={`w-full px-3 py-2 border rounded-xl text-xs font-mono transition-colors resize-none
+                  className={`w-full px-4 py-2.5 bg-gray-50 border-2 rounded-xl text-xs font-mono transition-all resize-none focus:outline-none focus:bg-white
                     ${geoJson && !isValidGeoJson(geoJson)
                       ? 'border-red-400 bg-red-50'
-                      : 'border-gray-300 focus:border-green-500 focus:ring-1 focus:ring-green-500'}`}
+                      : 'border-gray-200 focus:border-emerald-400'}`}
                 />
                 {geoJson && !isValidGeoJson(geoJson) && (
                   <p className="text-xs text-red-600 mt-1">Invalid GeoJSON — must be Polygon type with coordinates array</p>
@@ -307,7 +307,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-bold transition-all transform hover:scale-105 shadow-md"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 disabled:opacity-40 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold transition-all hover:shadow-lg hover:scale-[1.02] shadow-md"
               >
                 Register Farm Plot on MST Blockchain
               </button>
@@ -317,69 +317,69 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
           {/* ── CONFIRMING ── */}
           {step === STEP.CONFIRMING && (
             <div className="text-center py-8 space-y-5">
-              <div className="bg-green-100 p-6 rounded-full inline-block">
-                <Loader2 className="w-16 h-16 text-green-600 animate-spin" />
+              <div className="bg-emerald-100 p-6 rounded-full inline-block">
+                <Loader2 className="w-16 h-16 text-emerald-600 animate-spin" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-lg">Broadcasting Transaction…</h3>
                 <p className="text-sm text-gray-500 mt-1">Confirm in MetaMask and wait for block confirmation</p>
               </div>
               {txHash && (
-                <div className="p-3 bg-gray-50 rounded-xl text-left">
+                <div className="p-3 bg-gray-50 rounded-xl text-left border border-gray-200">
                   <p className="text-xs text-gray-500 mb-1">Transaction Hash:</p>
                   <p className="font-mono text-xs text-gray-700 break-all">{txHash}</p>
                 </div>
               )}
-              <p className="text-xs text-gray-400">Calling <code>FarmRegistry.registerFarmPlot()</code> on Hardhat local node…</p>
+              <p className="text-xs text-gray-400">Calling <code className="bg-gray-100 px-1 rounded">FarmRegistry.registerFarmPlot()</code> on Hardhat local node…</p>
             </div>
           )}
 
           {/* ── SUCCESS ── */}
           {step === STEP.SUCCESS && (
             <div className="text-center py-6 space-y-5">
-              <div className="bg-green-100 p-6 rounded-full inline-block">
-                <CheckCircle className="w-16 h-16 text-green-600" />
+              <div className="bg-emerald-100 p-6 rounded-full inline-block">
+                <CheckCircle className="w-16 h-16 text-emerald-600" />
               </div>
               <div>
-                <h3 className="font-bold text-green-900 text-xl">Farm Plot Enrolled! 🎉</h3>
+                <h3 className="font-bold text-emerald-900 text-xl">Farm Plot Enrolled! 🎉</h3>
                 <p className="text-sm text-gray-500 mt-1">Successfully registered on MST Blockchain</p>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 text-sm">
+              <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 text-sm border border-gray-200">
                 {plotId && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Plot ID:</span>
-                    <span className="font-bold text-green-700">#{plotId}</span>
+                    <span className="font-bold text-emerald-700">#{plotId}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Farmer Wallet:</span>
-                  <span className="font-mono text-xs">{farmerWallet.slice(0,6)}…{farmerWallet.slice(-4)}</span>
+                  <span className="font-mono text-xs text-gray-700">{farmerWallet.slice(0,6)}…{farmerWallet.slice(-4)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Crop Type:</span>
-                  <span className="font-semibold">{cropType}</span>
+                  <span className="font-semibold text-gray-900">{cropType}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Acreage:</span>
-                  <span className="font-semibold">{acreageStr} acres</span>
+                  <span className="font-semibold text-gray-900">{acreageStr} acres</span>
                 </div>
-                <div className="border-t pt-2">
+                <div className="border-t border-gray-200 pt-2 mt-2">
                   <p className="text-xs text-gray-500 mb-1">TX Hash:</p>
                   <p className="font-mono text-xs text-gray-700 break-all">{txHash}</p>
                 </div>
               </div>
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
-                <strong>Next step:</strong> The admin must call <code>createPolicy()</code> on AgriTrustVault to
+                <strong>Next step:</strong> The admin must call <code className="bg-blue-100 px-1 rounded">createPolicy()</code> on AgriTrustVault to
                 insure this plot. Then the AI oracle can trigger payouts when flood is detected.
               </div>
 
               <button
                 onClick={handleClose}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold transition-colors"
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-bold transition-all hover:shadow-lg shadow-md"
               >
-                Close & Refresh Map
+                Close &amp; Refresh Map
               </button>
             </div>
           )}
@@ -400,7 +400,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
               <div className="flex space-x-3">
                 <button
                   onClick={() => setStep(STEP.FORM)}
-                  className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 py-2.5 rounded-xl font-medium transition-colors"
+                  className="flex-1 border-2 border-gray-200 text-gray-700 hover:bg-gray-50 py-2.5 rounded-xl font-medium transition-all"
                 >
                   Try Again
                 </button>

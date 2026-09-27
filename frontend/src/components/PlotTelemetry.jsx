@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Droplets, Leaf } from 'lucide-react';
+import { Activity, Droplets, Leaf, Satellite } from 'lucide-react';
 
 // Circular gauge component
 const CircularGauge = ({ value, max, label, unit, color, icon: Icon }) => {
@@ -36,32 +36,38 @@ const CircularGauge = ({ value, max, label, unit, color, icon: Icon }) => {
         </svg>
         {/* Center Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <Icon className="w-6 h-6 text-gray-600 mb-1" />
-          <span className="text-2xl font-bold text-gray-900">
+          <Icon className="w-5 h-5 text-gray-500 mb-1" />
+          <span className="text-xl font-black text-gray-900">
             {value.toFixed(2)}
           </span>
-          <span className="text-xs text-gray-500">{unit}</span>
+          <span className="text-[10px] text-gray-400 font-medium">{unit}</span>
         </div>
       </div>
-      <p className="mt-3 text-sm font-medium text-gray-700">{label}</p>
+      <p className="mt-2 text-xs font-semibold text-gray-600 text-center">{label}</p>
     </div>
   );
 };
 
 // Status indicator component
 const StatusIndicator = ({ label, status, description }) => {
-  const statusColors = {
-    normal: 'bg-green-500',
-    warning: 'bg-orange-500',
-    critical: 'bg-red-500',
+  const dotClasses = {
+    normal:   'bg-emerald-400 w-2.5 h-2.5 rounded-full',
+    warning:  'bg-amber-400 w-2.5 h-2.5 rounded-full animate-pulse',
+    critical: 'bg-red-500 w-2.5 h-2.5 rounded-full animate-pulse',
+  };
+
+  const labelClasses = {
+    normal:   'text-emerald-700',
+    warning:  'text-amber-700',
+    critical: 'text-red-700',
   };
 
   return (
-    <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-      <div className={`w-3 h-3 rounded-full ${statusColors[status]} mt-1`}></div>
+    <div className="flex items-start space-x-3 p-3 bg-gray-50 border border-gray-100 rounded-xl">
+      <div className={`${dotClasses[status]} mt-1.5 flex-shrink-0`} />
       <div>
-        <p className="font-semibold text-gray-900">{label}</p>
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className={`font-semibold text-sm ${labelClasses[status]}`}>{label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{description}</p>
       </div>
     </div>
   );
@@ -132,11 +138,11 @@ const PlotTelemetry = ({ activeTelemetry }) => {
   const vegetationStatus = getVegetationStatus();
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
       {/* Header */}
       <div className="flex items-center space-x-2 mb-6">
-        <Activity className="w-6 h-6 text-primary" />
-        <h2 className="text-xl font-bold text-gray-900">Plot Telemetry & Satellite Monitoring</h2>
+        <Activity className="w-6 h-6 text-emerald-600" />
+        <h2 className="text-xl font-bold text-gray-900">Plot Telemetry &amp; Satellite Monitoring</h2>
       </div>
 
       {/* Gauges */}
@@ -176,7 +182,7 @@ const PlotTelemetry = ({ activeTelemetry }) => {
       </div>
 
       {/* Status Indicators */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Multi-Feed Status Alerts</h3>
         <StatusIndicator
           label="Flood Risk Assessment (Sentinel-1 SAR)"
@@ -196,8 +202,8 @@ const PlotTelemetry = ({ activeTelemetry }) => {
       </div>
 
       {/* Info Footer */}
-      <div className="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-        <p className="text-sm text-emerald-900">
+      <div className="mt-6 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+        <p className="text-xs text-emerald-700">
           <span className="font-semibold">Satellite Telemetry Sources:</span> Sentinel-1 C-Band SAR (Flood), Sentinel-2 MSI Bands 4/8 (NDVI), Sentinel-2 SWIR Band 11 (NDWI Drought). Updates every 3s.
         </p>
       </div>

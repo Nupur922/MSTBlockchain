@@ -55,48 +55,74 @@ const StatCards = () => {
     return () => clearInterval(id);
   }, []);
 
+  const liveBadge = data.live
+    ? (
+      <span className="flex items-center space-x-1 bg-white/20 text-white text-[10px] font-bold rounded-full px-2 py-0.5">
+        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse inline-block" />
+        <span>LIVE</span>
+      </span>
+    )
+    : (
+      <span className="flex items-center space-x-1 bg-white/20 text-white text-[10px] font-bold rounded-full px-2 py-0.5">
+        <span className="w-1.5 h-1.5 bg-white/70 rounded-full inline-block" />
+        <span>DEMO</span>
+      </span>
+    );
+
   const cards = [
     {
-      title: 'Escrow Pool Balance',
-      value: data.escrowBalance ?? '—',
-      icon:  DollarSign,
-      color: 'bg-blue-500',
+      title:    'Escrow Pool Balance',
+      value:    data.escrowBalance ?? '—',
+      subtitle: 'MST Blockchain Vault',
+      icon:     DollarSign,
+      gradient: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+      shadow:   'shadow-emerald-200',
     },
     {
-      title: 'Enrolled Farm Plots',
-      value: data.plotCount ?? '—',
-      icon:  Users,
-      color: 'bg-green-500',
+      title:    'Enrolled Farm Plots',
+      value:    data.plotCount ?? '—',
+      subtitle: 'Active Policies',
+      icon:     Users,
+      gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600',
+      shadow:   'shadow-blue-200',
     },
     {
-      title: 'Total Claims Paid',
-      value: data.claimsPaid ?? '—',
-      icon:  CheckCircle,
-      color: 'bg-purple-500',
+      title:    'Total Claims Paid',
+      value:    data.claimsPaid ?? '—',
+      subtitle: 'DBT Disbursed',
+      icon:     CheckCircle,
+      gradient: 'bg-gradient-to-br from-purple-500 to-pink-600',
+      shadow:   'shadow-purple-200',
     },
   ];
-
-  const badge = data.live
-    ? <span className="text-xs font-semibold text-green-600">⛓ Live</span>
-    : <span className="text-xs font-semibold text-gray-400">Demo</span>;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <div key={card.title} className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow">
+          <div
+            key={card.title}
+            className={`${card.gradient} rounded-2xl p-6 shadow-lg ${card.shadow} hover:shadow-xl transition-shadow`}
+          >
             <div className="flex items-center justify-between mb-4">
-              <div className={`${card.color} p-3 rounded-lg`}>
+              <div className="bg-white/20 rounded-xl p-2">
                 <Icon className="w-6 h-6 text-white" />
               </div>
-              {badge}
+              {liveBadge}
             </div>
-            <h3 className="text-gray-600 text-sm font-medium mb-1">{card.title}</h3>
-            {data.loading
-              ? <div className="flex items-center space-x-2 mt-2"><Loader2 className="w-5 h-5 text-gray-400 animate-spin" /><span className="text-gray-400 text-sm">Loading…</span></div>
-              : <p className="text-3xl font-bold text-gray-900">{card.value}</p>
-            }
+            <h3 className="text-white/80 text-sm font-semibold mb-1">{card.title}</h3>
+            {data.loading ? (
+              <div className="flex items-center space-x-2 mt-2">
+                <Loader2 className="w-5 h-5 text-white/70 animate-spin" />
+                <span className="text-white/70 text-sm">Loading…</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-3xl font-black text-white">{card.value}</p>
+                <p className="text-white/60 text-xs mt-1 font-medium">{card.subtitle}</p>
+              </>
+            )}
           </div>
         );
       })}
