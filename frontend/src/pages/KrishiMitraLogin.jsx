@@ -45,7 +45,8 @@ const KrishiMitraLogin = ({ onLoginSuccess }) => {
       const { ethereum } = window;
       
       if (!ethereum) {
-        setError('MetaMask not found! Please install MetaMask browser extension.');
+        // No MetaMask — offer demo login instead of hard error
+        setError('MetaMask not detected. Use the Demo Login below to explore the portal.');
         return;
       }
 
@@ -65,6 +66,26 @@ const KrishiMitraLogin = ({ onLoginSuccess }) => {
     } catch (err) {
       setIsConnecting(false);
       setError('Failed to connect wallet: ' + err.message);
+    }
+  };
+
+  // ── Demo Login (no MetaMask required) ──────────────────────────────────
+  const demoLogin = () => {
+    const demoAddress = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    const did = `did:mst:krishi:${demoAddress.toLowerCase()}`;
+    setWalletAddress(demoAddress);
+    setKrishiMitraDID(did);
+    setError('');
+
+    if (onLoginSuccess) {
+      onLoginSuccess({
+        walletAddress: demoAddress,
+        did: did,
+        role: 'KRISHI_MITRA',
+        signature: '0xDEMO_SIGNATURE',
+        timestamp: Date.now(),
+        isDemo: true,
+      });
     }
   };
 
@@ -177,10 +198,16 @@ const KrishiMitraLogin = ({ onLoginSuccess }) => {
             </p>
           </div>
 
-          {/* Error Message */}
+          {/* Error / Info Message */}
           {error && (
-            <div className="mb-6 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm flex items-start gap-2">
-              <i className="ph-bold ph-warning-circle text-red-600 text-lg mt-0.5"></i>
+            <div className={`mb-6 p-3 rounded-lg border text-sm flex items-start gap-2 ${
+              error.includes('Demo Login')
+                ? 'bg-blue-50 border-blue-200 text-blue-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              <span className="text-lg mt-0.5">
+                {error.includes('Demo Login') ? 'ℹ️' : '⚠️'}
+              </span>
               <span>{error}</span>
             </div>
           )}
@@ -209,41 +236,69 @@ const KrishiMitraLogin = ({ onLoginSuccess }) => {
 
           {/* Connect/Verify Buttons */}
           {!walletAddress ? (
-            <button
-              onClick={connectWallet}
-              disabled={isConnecting}
-              className="w-full bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 disabled:from-slate-400 disabled:to-slate-400 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:cursor-not-allowed"
-            >
-              {isConnecting ? (
-                <>
-                  <i className="ph-bold ph-circle-notch text-lg animate-spin"></i>
-                  <span>Connecting to MetaMask...</span>
-                </>
-              ) : (
-                <>
-                  <i className="ph-bold ph-wallet text-lg"></i>
-                  <span>Connect Wallet to Login</span>
-                </>
-              )}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={connectWallet}
+                disabled={isConnecting}
+                className="w-full bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 disabled:from-slate-400 disabled:to-slate-400 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:cursor-not-allowed"
+              >
+                {isConnecting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Connecting to MetaMask...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🦊</span>
+                    <span>Connect MetaMask Wallet</span>
+                  </>
+                )}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400 font-medium">or</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+
+              {/* Demo Login — always visible, works without MetaMask */}
+              <button
+                onClick={demoLogin}
+                className="w-full bg-white hover:bg-emerald-50 border-2 border-emerald-300 hover:border-emerald-500 text-emerald-800 font-bold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <span>🎯</span>
+                <span>Demo Login</span>
+                <span className="text-xs font-normal text-emerald-600 ml-1">(No MetaMask needed)</span>
+              </button>
+            </div>
           ) : !krishiMitraDID && (
-            <button
-              onClick={() => verifyKrishiMitraRole(walletAddress)}
-              disabled={isVerifying}
-              className="w-full bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-800 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-400 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:cursor-not-allowed"
-            >
-              {isVerifying ? (
-                <>
-                  <i className="ph-bold ph-circle-notch text-lg animate-spin"></i>
-                  <span>Verifying Role & Signing Challenge...</span>
-                </>
-              ) : (
-                <>
-                  <i className="ph-bold ph-fingerprint text-lg"></i>
-                  <span>Verify Krishi Mitra Role</span>
-                </>
-              )}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => verifyKrishiMitraRole(walletAddress)}
+                disabled={isVerifying}
+                className="w-full bg-gradient-to-r from-blue-700 to-blue-600 hover:from-blue-800 hover:to-blue-700 disabled:from-slate-400 disabled:to-slate-400 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:cursor-not-allowed"
+              >
+                {isVerifying ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Verifying Role & Signing Challenge...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔐</span>
+                    <span>Verify Krishi Mitra Role</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={demoLogin}
+                className="w-full bg-white hover:bg-emerald-50 border-2 border-emerald-300 text-emerald-800 font-bold py-2.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all text-sm"
+              >
+                <span>🎯</span>
+                <span>Skip to Demo Login</span>
+              </button>
+            </div>
           )}
 
           {/* Info Box */}
