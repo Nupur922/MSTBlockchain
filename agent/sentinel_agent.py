@@ -87,8 +87,12 @@ AGRI_VAULT_ABI = [
 # Config defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_RPC_URL          = "http://127.0.0.1:8545"
-DEFAULT_CHAIN_ID         = 31337
+DEFAULT_RPC_URL          = os.getenv("MST_RPC_URL", "http://127.0.0.1:8545")
+DEFAULT_CHAIN_ID         = int(os.getenv("MST_CHAIN_ID", "31337"))
+
+# MST Testnet constants
+MST_TESTNET_RPC_URL  = "https://testnetrpc.mstblockchain.com"
+MST_TESTNET_CHAIN_ID = 91562037
 POLL_INTERVAL_SECONDS    = 30
 MAX_PAYOUT_PER_PLOT_WEI  = 40_000 * 10**18   # 40,000 MST ceiling
 

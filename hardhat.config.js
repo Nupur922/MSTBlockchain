@@ -13,17 +13,44 @@ const config = {
     },
   },
   networks: {
+    // Local Hardhat node (development)
     localhost: {
       url: 'http://127.0.0.1:8545',
       chainId: 31337,
-    }
+    },
+    // MST Testnet (submission requirement)
+    mst_testnet: {
+      url: 'https://testnetrpc.mstblockchain.com',
+      chainId: 91562037,
+      accounts: process.env.DEPLOYER_PRIVATE_KEY
+        ? [process.env.DEPLOYER_PRIVATE_KEY]
+        : [],
+      gasPrice: 'auto',
+      gas: 'auto',
+      timeout: 120000,
+    },
+  },
+  etherscan: {
+    apiKey: {
+      mst_testnet: 'no-api-key-required',
+    },
+    customChains: [
+      {
+        network: 'mst_testnet',
+        chainId: 91562037,
+        urls: {
+          apiURL: 'https://testnet.mstscan.com/api',
+          browserURL: 'https://testnet.mstscan.com',
+        },
+      },
+    ],
   },
   paths: {
     sources: './contracts',
     tests: './test',
     cache: './cache',
-    artifacts: './artifacts'
-  }
+    artifacts: './artifacts',
+  },
 };
 
 export default config;
