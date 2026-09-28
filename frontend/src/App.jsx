@@ -451,10 +451,12 @@ function App() {
       />
 
       {/* ── Dashboard Main ── */}
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="container mx-auto px-4 py-6 space-y-6">
+        
+        {/* 1. Demo Control Panel */}
         <DemoControlPanel onTriggerScenario={handleTriggerScenario} />
 
-        {/* ── V2.0 Web-to-Call bridge feedback (Twilio PSTN + UltraMsg WhatsApp) ── */}
+        {/* 2. Bridge Status Banner (when active) */}
         {bridgeStatus && (
           <div
             className={`rounded-xl border px-4 py-3 text-sm font-medium flex items-start justify-between gap-3 ${
@@ -467,49 +469,52 @@ function App() {
             <span>{bridgeStatus.text}</span>
             <button
               onClick={() => setBridgeStatus(null)}
-              className="text-xs font-bold opacity-60 hover:opacity-100"
+              className="text-xs font-bold opacity-60 hover:opacity-100 transition-opacity"
             >
               ✕
             </button>
           </div>
         )}
 
+        {/* 3. Stat Cards */}
         <StatCards />
 
-        {/* V3 Multi-Hazard Analyzer Widget */}
+        {/* 4. Multi-Hazard Analyzer */}
         <MultiHazardAnalyzer activeTelemetry={activeTelemetry} />
 
-        {/* V3 7-Day Historical Climate & Telemetry Tracker */}
+        {/* 5. Historical Climate Tracker */}
         <HistoricalClimateTracker
           activeTelemetry={activeTelemetry}
           activeScenario={activeScenario}
           qrScannedPlot={qrScannedPlot}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div>
-            <div className="flex flex-wrap justify-end gap-2 mb-2">
+        {/* 6. Two-Column Grid: Left (Actions + Map) | Right (Telemetry) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {/* Action Buttons Row */}
+            <div className="flex flex-wrap justify-end gap-2">
               <button
                 onClick={() => setShowPDFEvidence(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
-                title="Download Official Satellite Audit Certificate (PDF Evidence)"
+                className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
+                title="Download Official Satellite Audit Certificate"
               >
                 <FileText className="w-4 h-4" />
-                <span>Audit Certificate (PDF Evidence)</span>
+                <span>Audit Certificate (PDF)</span>
               </button>
               <button
                 onClick={() => setShowQR(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
+                className="flex items-center space-x-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                 </svg>
-                <span>Scan / Upload Land Record QR</span>
+                <span>Scan Land QR</span>
               </button>
               <button
                 onClick={() => setShowEnroll(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
+                className="flex items-center space-x-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -518,6 +523,7 @@ function App() {
               </button>
             </div>
 
+            {/* Farm Map */}
             <FarmMap
               key={mapRefreshKey}
               qrScannedPlot={qrScannedPlot}
@@ -526,30 +532,31 @@ function App() {
             />
           </div>
 
+          {/* Plot Telemetry */}
           <PlotTelemetry activeTelemetry={activeTelemetry} />
         </div>
 
-        {/* Footer */}
-        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        {/* 7. Footer / About */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">About AgriTrust AI (Version 3.0)</h3>
-              <p className="text-gray-600 max-w-3xl text-sm">
+              <h3 className="text-lg font-black text-gray-900 mb-2">About AgriTrust AI (Version 3.0)</h3>
+              <p className="text-gray-600 max-w-3xl text-sm leading-relaxed">
                 AgriTrust AI V3 is a Multi-Hazard Parametric Crop Insurance &amp; Disaster Relief Escrow platform on MST Blockchain.
                 Monitors Sentinel-1 SAR (Floods) + Sentinel-2 NDWI (Flash Droughts) + Thermal LST (Heatwaves) + IMD rainfall →
                 2-of-3 Oracle Consensus → EIP-191 proof verification → instant MST payout in &lt;2 seconds.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">⛓ FarmRegistry &amp; AgriTrustVault</span>
-                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">🛰 NEWRRO Multi-Hazard AI Oracle</span>
-                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">🌊 Flood SAR + ☀️ Drought NDWI + 🔥 Heatwave LST</span>
-                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">📱 AePS Micro-ATM Cashout (Aadhaar)</span>
-                <span className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 rounded-lg font-medium hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">📄 Cryptographic PDF Audit Certificates</span>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {['⛓ FarmRegistry & AgriTrustVault', '🛰 NEWRRO Multi-Hazard AI Oracle', '🌊 Flood SAR + ☀️ Drought NDWI + 🔥 Heatwave LST', '📱 AePS Micro-ATM Cashout (Aadhaar)', '📄 Cryptographic PDF Audit Certificates'].map((badge) => (
+                  <span key={badge} className="px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-700 rounded-lg text-xs font-bold hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all cursor-default">
+                    {badge}
+                  </span>
+                ))}
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500 mb-1">Connected Network</p>
-              <p className="font-semibold text-gray-900 mb-2">Hardhat Local (Chain ID: 31337)</p>
+              <p className="text-sm text-gray-500 mb-1 font-medium">Connected Network</p>
+              <p className="font-black text-gray-900 mb-2">Hardhat Local (Chain ID: 31337)</p>
               {chainBadge()}
             </div>
           </div>

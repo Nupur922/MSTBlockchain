@@ -1,64 +1,107 @@
 import React from 'react';
-import { Zap, CloudRain, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Satellite, Waves, Sun, Flame, CloudRain, XCircle, RotateCcw } from 'lucide-react';
 
 const DemoControlPanel = ({ onTriggerScenario }) => {
   const scenarios = [
     {
-      id: 'reset',
-      label: 'Reset Baseline',
-      description: 'Clear all simulations and reset to normal conditions',
-      icon: RefreshCw,
-      buttonClass: 'bg-gray-100 hover:bg-gray-200 text-gray-700',
-      iconClass: 'bg-gray-200',
-      isReset: true,
-    },
-    {
       id: 'assam-flood',
-      label: 'Simulate Assam Flood',
-      description: 'Majuli Island (Brahmaputra) — Sentinel-1 SAR: -22.4 dB',
-      icon: CloudRain,
-      buttonClass: 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md hover:shadow-lg hover:scale-105',
-      iconClass: 'bg-white/20',
+      label: 'Assam Flood',
+      description: 'Majuli — SAR -22.4 dB',
+      icon: Waves,
+      color: 'cyan',
+      borderClass: 'border-t-cyan-500',
+      hoverClass: 'hover:border-cyan-300 hover:bg-cyan-50',
+      iconBg: 'bg-cyan-100',
+      iconColor: 'text-cyan-600',
     },
     {
       id: 'bihar-flood',
-      label: 'Simulate Bihar Flood',
-      description: 'Darbhanga / Kosi Basin — 50% Damage, 9 days submerged',
-      icon: AlertTriangle,
-      buttonClass: 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md hover:shadow-lg hover:scale-105',
-      iconClass: 'bg-white/20',
+      label: 'Bihar Flood',
+      description: 'Kosi Basin — 9 days',
+      icon: Waves,
+      color: 'blue',
+      borderClass: 'border-t-blue-600',
+      hoverClass: 'hover:border-blue-300 hover:bg-blue-50',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
+    },
+    {
+      id: 'karnataka-flood',
+      label: 'Karnataka Flood',
+      description: 'Cauvery — 5 days',
+      icon: Waves,
+      color: 'cyan',
+      borderClass: 'border-t-cyan-600',
+      hoverClass: 'hover:border-cyan-300 hover:bg-cyan-50',
+      iconBg: 'bg-cyan-100',
+      iconColor: 'text-cyan-700',
     },
     {
       id: 'maharashtra-drought',
       label: 'Maharashtra Drought',
-      description: 'Marathwada Flash Drought — NDWI: -0.45, 50% Payout',
-      icon: CloudRain,
-      buttonClass: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md hover:shadow-lg hover:scale-105',
-      iconClass: 'bg-white/20',
+      description: 'NDWI -0.45',
+      icon: Sun,
+      color: 'amber',
+      borderClass: 'border-t-amber-500',
+      hoverClass: 'hover:border-amber-300 hover:bg-amber-50',
+      iconBg: 'bg-amber-100',
+      iconColor: 'text-amber-600',
     },
     {
       id: 'punjab-heatwave',
       label: 'Punjab Heatwave',
-      description: 'Scorching Wheat Stress — LST: 44.2°C, 40% Payout',
-      icon: AlertTriangle,
-      buttonClass: 'bg-gradient-to-br from-rose-500 to-red-600 text-white shadow-md hover:shadow-lg hover:scale-105',
-      iconClass: 'bg-white/20',
+      description: 'LST 44.2°C',
+      icon: Flame,
+      color: 'rose',
+      borderClass: 'border-t-rose-500',
+      hoverClass: 'hover:border-rose-300 hover:bg-rose-50',
+      iconBg: 'bg-rose-100',
+      iconColor: 'text-rose-600',
     },
     {
       id: 'tn-harvest-rain',
       label: 'TN Harvest Rain',
-      description: 'Samba Harvest Lodging — 180mm unseasonal rain during harvest',
+      description: '180mm lodging',
       icon: CloudRain,
-      buttonClass: 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-md hover:shadow-lg hover:scale-105',
-      iconClass: 'bg-white/20',
+      color: 'emerald',
+      borderClass: 'border-t-emerald-600',
+      hoverClass: 'hover:border-emerald-300 hover:bg-emerald-50',
+      iconBg: 'bg-emerald-100',
+      iconColor: 'text-emerald-600',
     },
     {
       id: 'harvest-confusion',
-      label: 'Harvest Stubble Shield',
-      description: 'NDVI 0.15 drop but SAR dry (-8dB) — 0 Payout (Claim Rejected)',
-      icon: AlertTriangle,
-      buttonClass: 'bg-gradient-to-br from-slate-600 to-gray-700 text-white shadow-md hover:shadow-lg hover:scale-105',
-      iconClass: 'bg-white/20',
+      label: 'Harvest Stubble',
+      description: 'False drop — 0%',
+      icon: XCircle,
+      color: 'gray',
+      borderClass: 'border-t-gray-500',
+      hoverClass: 'hover:border-gray-300 hover:bg-gray-50',
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-600',
+    },
+    {
+      id: 'ghost-crop-fraud',
+      label: 'Ghost Crop',
+      description: 'Fraud flagged',
+      icon: XCircle,
+      color: 'gray',
+      borderClass: 'border-t-gray-600',
+      hoverClass: 'hover:border-gray-300 hover:bg-gray-50',
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-700',
+    },
+    {
+      id: 'reset',
+      label: 'Reset',
+      description: 'Clear scenario',
+      icon: RotateCcw,
+      color: 'slate',
+      borderClass: 'border-t-gray-400',
+      hoverClass: 'hover:border-gray-300 hover:bg-gray-50',
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-500',
+      isReset: true,
     },
   ];
 
@@ -69,34 +112,40 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-emerald-500 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Demo Control Panel</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-gray-100">
+        <div className="flex items-center space-x-2">
+          <div className="bg-gradient-to-br from-emerald-400 to-teal-500 p-2 rounded-xl">
+            <Satellite className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-extrabold text-gray-900">Live Disaster Simulation Control</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Trigger parametric oracle consensus across 3 satellite spectrums</p>
+          </div>
         </div>
-        <div className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-200 text-xs font-bold rounded-full">
-          SIMULATION MODE
+        <div className="px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-full uppercase tracking-wider">
+          🎮 Simulation Mode
         </div>
       </div>
 
-      {/* Scenario Buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Scenario Buttons Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {scenarios.map((scenario) => {
           const Icon = scenario.icon;
           return (
             <button
               key={scenario.id}
               onClick={() => handleScenarioClick(scenario.id)}
-              className={`${scenario.buttonClass} rounded-xl p-4 transition-all font-semibold text-sm`}
+              className={`bg-white border-2 border-gray-200 ${scenario.borderClass} ${scenario.hoverClass} rounded-xl p-3 transition-all hover:scale-105 active:scale-95 group`}
             >
               <div className="flex flex-col items-center text-center space-y-2">
-                <div className={`${scenario.iconClass} p-2 rounded-lg`}>
-                  <Icon className="w-5 h-5" />
+                <div className={`${scenario.iconBg} p-2 rounded-lg group-hover:scale-110 transition-transform`}>
+                  <Icon className={`w-5 h-5 ${scenario.iconColor}`} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm leading-tight">{scenario.label}</h3>
-                  <p className={`text-xs mt-1 leading-tight ${scenario.isReset ? 'text-gray-500' : 'text-white/80'}`}>
+                  <h3 className="font-bold text-xs text-gray-900 leading-tight">{scenario.label}</h3>
+                  <p className="text-[10px] text-gray-500 mt-1 leading-tight font-medium">
                     {scenario.description}
                   </p>
                 </div>
@@ -105,7 +154,6 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
           );
         })}
       </div>
-
     </div>
   );
 };

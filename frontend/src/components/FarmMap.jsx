@@ -38,8 +38,6 @@ const DEMO_FARM_PLOTS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Janaki's contract stores GeoJSON as {type:'Polygon', coordinates:[[[lng,lat]...]]}
-// Leaflet needs [[lat,lng]]
 const parseGeoJsonToLeaflet = (geoJsonStr) => {
   try {
     const geo = JSON.parse(geoJsonStr);
@@ -75,7 +73,6 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
   const [mapCenter,      setMapCenter]      = useState(MAJULI_CENTER);
   const [mapZoom,        setMapZoom]        = useState(DEFAULT_ZOOM);
 
-  // ── Fetch on-chain plots using Janaki's real ABI ───────────────────────────
   const fetchOnChainPlots = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -84,7 +81,6 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
       const contract = getFarmRegistryContract(provider);
       if (!contract) throw new Error('Contract not initialised');
 
-      // ✅ Janaki's real method: getPlotCount() (not plotCounter)
       const countBig = await contract.getPlotCount();
       const count    = Number(countBig);
 
@@ -97,9 +93,7 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
       const fetched = [];
       for (let i = 1; i <= count; i++) {
         try {
-          // ✅ Janaki's real method: getFarmPlot(plotId) returns FarmPlot struct
           const plot = await contract.getFarmPlot(i);
-          // ✅ Janaki's real field names: ownerWallet, polygonGeoJSON, isEnrolled, acreage
           const { ownerWallet, polygonGeoJSON, cropType, isEnrolled, acreage } = plot;
 
           const coords = parseGeoJsonToLeaflet(polygonGeoJSON);
@@ -123,7 +117,6 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
       if (fetched.length > 0) {
         setPlots(fetched);
         setChainConnected(true);
-        // Center on the MOST RECENTLY enrolled plot!
         setMapCenter(fetched[fetched.length - 1].coordinates[0]);
         setMapZoom(13);
       } else {
@@ -142,7 +135,6 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
 
   useEffect(() => { fetchOnChainPlots(); }, [fetchOnChainPlots]);
 
-  // ── Append QR-scanned plot ─────────────────────────────────────────────────
   useEffect(() => {
     if (!qrScannedPlot) return;
     const newPlot = {
@@ -151,7 +143,7 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
       farmer:      qrScannedPlot.khasraNo,
       coordinates: qrScannedPlot.coordinates,
       cropType:    qrScannedPlot.cropType,
-      acreage:     Math.round(qrScannedPlot.areaHectares * 247), // ha → acreage ×100 approx
+      acreage:     Math.round(qrScannedPlot.areaHectares * 247),
       isActive:    true,
       source:      'qr',
     };
@@ -159,7 +151,6 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
     if (qrScannedPlot.center) { setMapCenter(qrScannedPlot.center); setMapZoom(14); }
   }, [qrScannedPlot]);
 
-  // ── Flood scenario colour overlay ─────────────────────────────────────────
   const scenarioStyle = (plot) => {
     if (activeScenario === 'assam-flood' && plot.source !== 'qr')
       return { color: '#f97316', fillColor: '#f97316' };
@@ -168,83 +159,78 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
     return { color: statusColor(plot.isActive, plot.source), fillColor: statusColor(plot.isActive, plot.source) };
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 h-[620px] flex flex-col">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 border-l-4 border-l-emerald-500 p-6 h-[620px] flex flex-col">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
         <div className="flex items-center space-x-2">
-          <MapPin className="w-6 h-6 text-primary" />
-          <h2 className="text-xl font-bold text-gray-900">
-            Farm Plots {chainConnected ? '— On-Chain' : '— Majuli, Assam'}
-          </h2>
+          <MapPin className="w-5 h-5 text-emerald-600" />
+          <div>
+            <h2 className="text-lg font-extrabold text-gray-900">
+              Farm Plot Registry — GIS Satellite Overlay
+            </h2>
+            <p className="text-xs text-gray-500 font-medium">
+              {chainConnected ? 'On-chain plot registry' : 'Demo mode'}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* Chain badge */}
-          <span className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-semibold
-            ${chainConnected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          {/* Chain Status Badge */}
+          <span className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
+            chainConnected ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
+          }`}>
             {chainConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-            <span>{chainConnected ? 'On-chain' : 'Demo'}</span>
+            <span>{chainConnected ? 'Live Chain' : 'Demo'}</span>
           </span>
 
-          {/* Enroll button */}
+          {/* Enroll Button */}
           {onEnrollClick && (
             <button
               onClick={onEnrollClick}
-              className="flex items-center space-x-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
             >
-              <UserPlus className="w-3 h-3" />
+              <UserPlus className="w-3.5 h-3.5" />
               <span>Enroll Farm</span>
             </button>
           )}
 
           {/* Refresh */}
           <button onClick={fetchOnChainPlots} disabled={loading}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? 'animate-spin' : ''}`} />
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
           </button>
-
-          {/* Legend */}
-          <div className="hidden sm:flex items-center space-x-3">
-            {[['bg-green-500','Active'],['bg-indigo-500','QR'],['bg-orange-500','At Risk']].map(([c,l]) => (
-              <div key={l} className="flex items-center space-x-1">
-                <div className={`w-3 h-3 ${c} rounded-sm`} />
-                <span className="text-xs text-gray-500">{l}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
-      {/* Error banner */}
+      {/* Error Banner */}
       {errorMsg && (
-        <div className="flex items-center space-x-2 mb-2 px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+        <div className="flex items-center space-x-2 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Flood banner */}
+      {/* Disaster Alert Banner */}
       {activeScenario && activeScenario !== 'reset' && (
-        <div className="flex items-center space-x-2 mb-2 px-3 py-2 bg-red-50 border border-red-300 rounded-lg text-xs text-red-800 animate-pulse">
+        <div className="flex items-center space-x-2 mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 font-bold animate-pulse">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>
             <strong>FLOOD ALERT:</strong>{' '}
-            {activeScenario === 'assam-flood' ? 'Assam (Majuli region)' : 'Bihar farmlands'}{' '}
-            — emergency payout triggered by AI oracle
+            {activeScenario === 'assam-flood' ? 'Assam (Majuli)' : 'Bihar farmlands'}{' '}
+            — emergency payout triggered
           </span>
         </div>
       )}
 
-      {/* Map */}
-      <div className="flex-1 rounded-lg overflow-hidden border border-gray-200 relative">
+      {/* Map Container */}
+      <div className="flex-1 rounded-xl overflow-hidden border-2 border-gray-200 relative">
         {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="flex flex-col items-center space-y-2">
-              <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
-              <p className="text-sm text-gray-600">Fetching on-chain plots…</p>
+              <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+              <p className="text-sm text-gray-600 font-medium">Fetching plots…</p>
             </div>
           </div>
         )}
@@ -285,8 +271,8 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
                         {plot.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </p>
-                    {plot.source === 'qr'    && <span className="mt-1 inline-block px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">📱 QR Scan</span>}
-                    {plot.source === 'chain' && <span className="mt-1 inline-block px-2 py-0.5 bg-green-100  text-green-700  text-xs rounded-full">⛓ On-chain</span>}
+                    {plot.source === 'qr'    && <span className="mt-1 inline-block px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full font-bold">📱 QR Scan</span>}
+                    {plot.source === 'chain' && <span className="mt-1 inline-block px-2 py-0.5 bg-green-100  text-green-700  text-xs rounded-full font-bold">⛓ On-chain</span>}
                   </div>
                 </Popup>
               </Polygon>
@@ -295,18 +281,18 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
         </MapContainer>
       </div>
 
-      {/* Selected plot bar */}
+      {/* Selected Plot Bar */}
       {selectedPlot && (
-        <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center justify-between">
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold">Selected:</span> {selectedPlot.name}
+        <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200 flex items-center justify-between">
+          <p className="text-sm text-gray-700 font-medium">
+            <span className="font-bold">Selected:</span> {selectedPlot.name}
             <span className="ml-2 text-indigo-600">• {selectedPlot.cropType}</span>
           </p>
-          <button onClick={() => setSelectedPlot(null)} className="text-gray-400 hover:text-gray-600 text-xs ml-4">✕</button>
+          <button onClick={() => setSelectedPlot(null)} className="text-gray-400 hover:text-gray-600 text-sm font-bold ml-4">✕</button>
         </div>
       )}
 
-      <p className="mt-1 text-xs text-gray-400 text-right">
+      <p className="mt-2 text-xs text-gray-400 text-right font-medium">
         {plots.length} plot{plots.length !== 1 ? 's' : ''} displayed
         {plots.some(p => p.source === 'qr') && ' (incl. QR scan)'}
       </p>
