@@ -5,15 +5,14 @@ import { Activity, Waves, Leaf, CloudRain, Thermometer, ShieldCheck, AlertTriang
  * HistoricalClimateTracker — Version 3.0 New Feature
  * 7-Day Historical Telemetry & Micro-Climate Trend Visualizer
  *
- * Shows:
- *   1. Sentinel-1 SAR Backscatter 7-day sparkline (dB)
- *   2. Sentinel-2 NDVI Vegetation Decay gradient bar
- *   3. IMD 7-day Precipitation (mm) bar histogram + Temperature badges (°C)
- *   4. Consensus Breach Tag — highlights the exact day 2-of-3 oracle threshold was crossed
+ * Shows satellite telemetry history for the REGISTERED PLOT.
+ * When a farmer scans their land record QR and registers their plot,
+ * this tracker displays that plot's 7-day SAR/NDVI/Rain/Temp history.
  *
  * Props:
  *   activeTelemetry  — current telemetry object from App.jsx state
  *   activeScenario   — scenario slug string (e.g. "assam-flood") or null
+ *   qrScannedPlot    — plot data from QR scan / enrollment (has state, farmerName, khasraNo, etc.)
  */
 
 // ---------------------------------------------------------------------------
@@ -86,6 +85,18 @@ const DEFAULT_HISTORY = {
   ndvi: [0.72,  0.74,  0.75,  0.76,  0.75,  0.75,  0.75],
   rain: [8,     5,     12,    3,     7,     10,    6],
   temp: [28.5,  29.0,  28.8,  29.2,  28.9,  28.7,  28.5],
+};
+
+// Map a plot's state name → which scenario history to use for telemetry
+const STATE_TO_SCENARIO = {
+  'Assam':        'assam-flood',
+  'Bihar':        'bihar-flood',
+  'Maharashtra':  'maharashtra-drought',
+  'Punjab':       'punjab-heatwave',
+  'Karnataka':    'karnataka-flood',
+  'Tamil Nadu':   'tn-harvest-rain',
+  'Gujarat':      'bihar-flood',       // nearest climate analog
+  'West Bengal':  'assam-flood',
 };
 
 // Day labels — D-6 to D-0 (today)
@@ -228,13 +239,33 @@ function RainTempHistogram({ rainValues, tempValues, consensusDay }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export default function HistoricalClimateTracker({ activeTelemetry, activeScenario }) {
+export default function HistoricalClimateTracker({ activeTelemetry, activeScenario, qrScannedPlot }) {
   const history = useMemo(() => {
+    // Priority 1: active disaster scenario (Demo Control Panel button clicked)
     if (activeScenario && SCENARIO_HISTORY[activeScenario]) {
       return SCENARIO_HISTORY[activeScenario];
     }
+    // Priority 2: registered/scanned plot — use its state to pick climate history
+    if (qrScannedPlot?.state) {
+      const scenarioKey = STATE_TO_SCENARIO[qrScannedPlot.state];
+      if (scenarioKey && SCENARIO_HISTORY[scenarioKey]) {
+        return SCENARIO_HISTORY[scenarioKey];
+      }
+    }
+    // Priority 3: healthy baseline (no plot registered, no scenario active)
     return DEFAULT_HISTORY;
-  }, [activeScenario]);
+  }, [activeScenario, qrScannedPlot]);
+
+  // Resolve farmer name: scanned plot > scenario default > generic
+  const farmerName = qrScannedPlot?.farmerName
+    || qrScannedPlot?.ownerName
+    || history.farmerName
+    || null;
+
+  // Resolve plot reference: scanned plot > scenario default
+  const plotRef = qrScannedPlot
+    ? `${qrScannedPlot.khasraNo || qrScannedPlot.khasraNumber || 'Plot'} · ${qrScannedPlot.village || qrScannedPlot.district || ''}, ${qrScannedPlot.state || ''}`
+    : (history.plotRef || null);
 
   const isDisaster = history.consensusDay !== null;
 
@@ -257,7 +288,15 @@ export default function HistoricalClimateTracker({ activeTelemetry, activeScenar
                 LIVE
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">{history.label}</p>
+            {/* Show registered farmer + plot info if available */}
+            {farmerName ? (
+              <div className="mt-1 space-y-0.5">
+                <p className="text-sm font-bold text-gray-800">👨‍🌾 {farmerName}</p>
+                {plotRef && <p className="text-xs text-gray-500">{plotRef}</p>}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 mt-0.5">{history.label}</p>
+            )}
           </div>
         </div>
 
