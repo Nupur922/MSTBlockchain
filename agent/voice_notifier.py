@@ -213,6 +213,7 @@ class VoiceNotifier:
         # UltraMsg WhatsApp credentials from .env
         self._ultramsg_instance_id = os.getenv("ULTRAMSG_INSTANCE_ID", "").strip()
         self._ultramsg_token       = os.getenv("ULTRAMSG_TOKEN", "").strip()
+        self._ultramsg_whatsapp_number = os.getenv("ULTRAMSG_WHATSAPP_NUMBER", "").strip()
 
         if self.ultramsg_configured:
             logger.info("💬  UltraMsg WhatsApp initialized — Direct WhatsApp alerts ENABLED (Instance: %s)", self._ultramsg_instance_id)
@@ -662,8 +663,10 @@ class VoiceNotifier:
         Sends an automated WhatsApp alert directly to the farmer's WhatsApp via UltraMsg API.
         Zero TRAI DLT registration required — works instantly on Indian (+91) phone numbers.
         """
+        # Fallback to configured WhatsApp phone number if dummy or empty
         env_to = (
-            os.getenv("TWILIO_VERIFIED_TO_NUMBER", "").strip()
+            self._ultramsg_whatsapp_number
+            or os.getenv("TWILIO_VERIFIED_TO_NUMBER", "").strip()
             or os.getenv("TWILIO_TO_PHONE_NUMBER", "").strip()
             or os.getenv("FARMER_PHONE_NUMBER", "").strip()
         )
