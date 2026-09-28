@@ -37,12 +37,22 @@ Project: AgriTrust AI — MST Blockchain Buildathon
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+# Import DID generator for V3 integration
+try:
+    from did_generator import DIDGenerator, generate_did, generate_verifiable_credential
+    DID_AVAILABLE = True
+except ImportError:
+    DID_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("⚠️  did_generator.py not found. DID/VC features disabled.")
 
 # ---------------------------------------------------------------------------
 # Logging
