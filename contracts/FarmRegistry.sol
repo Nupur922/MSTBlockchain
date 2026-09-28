@@ -9,8 +9,9 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
  * Manages enrolled farm plots in flood basins (Assam Brahmaputra & Bihar Kosi).
  */
 contract FarmRegistry is AccessControl {
-    bytes32 public constant KRISHI_MITRA_ROLE = keccak256("KRISHI_MITRA_ROLE");
-    bytes32 public constant ORACLE_ROLE = keccak256("ORACLE_ROLE");
+    bytes32 public constant KRISHI_MITRA_ROLE  = keccak256("KRISHI_MITRA_ROLE");
+    bytes32 public constant ORACLE_ROLE         = keccak256("ORACLE_ROLE");
+    bytes32 public constant DID_REGISTRY_ROLE   = keccak256("DID_REGISTRY_ROLE");
 
     struct FarmPlot {
         uint256 id;
@@ -31,6 +32,12 @@ contract FarmRegistry is AccessControl {
     mapping(uint256 => FarmPlot) public plots;
     mapping(address => uint256[]) public farmerPlots;
 
+    // ── V3.0: Decentralized Identity (DID) Registry ───────────────────────
+    // Format: "did:mst:farmer:0x<lowercaseAddress>"
+    mapping(address => string) public farmerDID;
+    // Reverse lookup: DID string → wallet address
+    mapping(string => address) public didToWallet;
+
     event FarmPlotRegistered(
         uint256 indexed plotId,
         address indexed ownerWallet,
@@ -41,13 +48,28 @@ contract FarmRegistry is AccessControl {
         string stateName
     );
 
+    // ── V3.0: DID Events ─────────────────────────────────────────────────
+    event FarmerDIDRegistered(
+        address indexed farmerWallet,
+        string did,
+        uint256 registeredAt
+    );
+    event FarmerDIDUpdated(
+        address indexed farmerWallet,
+        string oldDID,
+        string newDID,
+        uint256 updatedAt
+    );
+
     constructor(address adminAddress, address initialKrishiMitra) {
         require(adminAddress != address(0), "Invalid admin address");
         _grantRole(DEFAULT_ADMIN_ROLE, adminAddress);
         _grantRole(KRISHI_MITRA_ROLE, adminAddress);
+        _grantRole(DID_REGISTRY_ROLE, adminAddress);
 
         if (initialKrishiMitra != address(0)) {
             _grantRole(KRISHI_MITRA_ROLE, initialKrishiMitra);
+            _grantRole(DID_REGISTRY_ROLE, initialKrishiMitra);
         }
     }
 
@@ -141,5 +163,63 @@ contract FarmRegistry is AccessControl {
      */
     function getPlotsByFarmer(address farmer) external view returns (uint256[] memory) {
         return farmerPlots[farmer];
+    }
+
+    // =========================================================================
+    // V3.0 — Decentralized Identity (DID) Registry
+    // =========================================================================
+
+    /**
+     * @dev Register or update a W3C DID for a farmer wallet.
+     *      Only Krishi Mitras and DID_REGISTRY_ROLE holders may call this.
+     *      DID format: "did:mst:farmer:0x<lowercaseAddress>"
+     *
+     * @param farmerWallet  Farmer's Ethereum wallet address
+     * @param did           The DID string to associate
+     */
+    function registerFarmerDID(address farmerWallet, string calldata did)
+        external
+        onlyRole(DID_REGISTRY_ROLE)
+    {
+        require(farmerWallet != address(0), "Invalid farmer wallet");
+        require(bytes(did).length > 0, "DID cannot be empty");
+
+        string memory existing = farmerDID[farmerWallet];
+
+        if (bytes(existing).length > 0) {
+            // Clear old reverse lookup
+            delete didToWallet[existing];
+            emit FarmerDIDUpdated(farmerWallet, existing, did, block.timestamp);
+        } else {
+            emit FarmerDIDRegistered(farmerWallet, did, block.timestamp);
+        }
+
+        farmerDID[farmerWallet] = did;
+        didToWallet[did] = farmerWallet;
+    }
+
+    /**
+     * @dev Resolve a farmer wallet address → their DID string.
+     * @param farmerWallet  Farmer wallet address
+     * @return did          The registered DID, or empty string if none
+     */
+    function getFarmerDID(address farmerWallet) external view returns (string memory did) {
+        return farmerDID[farmerWallet];
+    }
+
+    /**
+     * @dev Reverse-resolve a DID string → wallet address.
+     * @param did   The DID string to look up
+     * @return wallet  The registered wallet, or address(0) if not found
+     */
+    function resolveWalletFromDID(string calldata did) external view returns (address wallet) {
+        return didToWallet[did];
+    }
+
+    /**
+     * @dev Check whether a farmer wallet has a registered DID.
+     */
+    function hasDID(address farmerWallet) external view returns (bool) {
+        return bytes(farmerDID[farmerWallet]).length > 0;
     }
 }
