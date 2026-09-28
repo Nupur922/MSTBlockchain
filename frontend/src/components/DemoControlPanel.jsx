@@ -1,7 +1,7 @@
 import React from 'react';
 import { Satellite, Waves, Sun, Flame, CloudRain, XCircle, RotateCcw } from 'lucide-react';
 
-const DemoControlPanel = ({ onTriggerScenario }) => {
+const DemoControlPanel = ({ onTriggerScenario, activeScenario }) => {
   const scenarios = [
     {
       id: 'assam-flood',
@@ -137,7 +137,11 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
             <button
               key={scenario.id}
               onClick={() => handleScenarioClick(scenario.id)}
-              className={`bg-white border-2 border-gray-200 ${scenario.borderClass} ${scenario.hoverClass} rounded-xl p-3 transition-all hover:scale-105 active:scale-95 group`}
+              className={`bg-white border-2 rounded-xl p-3 transition-all hover:scale-105 active:scale-95 group ${
+                activeScenario === scenario.id
+                  ? `border-${scenario.color}-500 ring-2 ring-${scenario.color}-200 bg-${scenario.color}-50/40 scale-105`
+                  : `border-gray-200 ${scenario.borderClass} ${scenario.hoverClass}`
+              }`}
             >
               <div className="flex flex-col items-center text-center space-y-2">
                 <div className={`${scenario.iconBg} p-2 rounded-lg group-hover:scale-110 transition-transform`}>

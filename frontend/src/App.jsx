@@ -47,7 +47,7 @@ const toDisasterType = (hazard = '') => {
 const randomTxHash = () =>
   '0x' + Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
 
-function App() {
+function App({ onRegisterScenarioHandler, onTelemetryChange, onScenarioChange }) {
   // ── Scenario / map state ──────────────────────────────────────────────────
   const [activeScenario,  setActiveScenario]  = useState(null);
   const [qrScannedPlot,   setQrScannedPlot]   = useState(null);
@@ -162,6 +162,13 @@ function App() {
     const retry = setInterval(() => {
       if (chainStatusRef.current !== 'listening') setupEventListener();
     }, EVENT_LISTENER_RETRY_MS);
+
+    // Register this component's scenario handler with main.jsx AppRouter
+    // so the Krishi Mitra portal can trigger the same scenarios
+    if (onRegisterScenarioHandler) {
+      onRegisterScenarioHandler(handleTriggerScenario);
+    }
+
     return () => {
       clearInterval(retry);
       contractRef.current?.removeAllListeners?.('DisasterPayoutExecuted');
@@ -174,7 +181,9 @@ function App() {
   const applyTelemetry = useCallback((telemetry) => {
     telemetryRef.current = telemetry;
     setActiveTelemetry(telemetry);
-  }, []);
+    // Propagate to shared state in main.jsx (read by Krishi portal)
+    if (onTelemetryChange) onTelemetryChange(telemetry);
+  }, [onTelemetryChange]);
 
   /**
    * V2.0 Web-to-Call bridge: POSTs the live scenario telemetry to
@@ -454,7 +463,7 @@ function App() {
       <main className="container mx-auto px-4 py-6 space-y-6">
         
         {/* 1. Demo Control Panel */}
-        <DemoControlPanel onTriggerScenario={handleTriggerScenario} />
+        <DemoControlPanel onTriggerScenario={handleTriggerScenario} activeScenario={activeScenario} />
 
         {/* 2. Bridge Status Banner (when active) */}
         {bridgeStatus && (

@@ -641,6 +641,63 @@ class SentinelAgent:
                     logger.warning("⚠️  PDF generation failed: %s", pdf_exc)
                     cert_path = None
 
+                # ── V3: Generate W3C DID Verifiable Credential ───────────
+                try:
+                    from did_generator import (
+                        generate_did,
+                        generate_verifiable_credential,
+                        vc_to_json,
+                        vc_credential_hash,
+                        did_badge_short,
+                    )
+                    farmer_wallet = plot.get("owner", owner)
+                    farmer_did    = generate_did(farmer_wallet, role="farmer")
+                    oracle_did    = generate_did(
+                        proof.signer_address or "0x1d9e8dcD48A6461082fF16790512D4c38D4eed27",
+                        role="oracle",
+                    )
+                    vc = generate_verifiable_credential(
+                        farmer_did=farmer_did,
+                        oracle_did=oracle_did,
+                        farmer_name=farmer,
+                        plot_id=str(plot_id),
+                        khasra_number=plot.get("khasraNumber", ""),
+                        state_name=plot.get("stateName", ""),
+                        district_name=plot.get("districtName", ""),
+                        crop_type=crop_type,
+                        disaster_type="Monsoon Flood",
+                        damage_pct=consensus.verified_damage_pct,
+                        payout_inr=payout_mst,
+                        payout_mst=payout_mst,
+                        satellite_proof_hash=proof.proof_hash,
+                        mst_tx_hash=tx_hash or "DEMO_TX_PENDING",
+                        eip191_signature=proof.signature_hex,
+                        ndvi_pre=0.75,
+                        ndvi_post=ndvi_result.ndvi,
+                        sar_db=sar_data.mean_backscatter_db,
+                        sar_flood_days=sar_result.flood_days,
+                        rainfall_mm=rainfall_mm,
+                        consensus_score=consensus.consensus_score,
+                        votes_for=consensus.votes_for,
+                    )
+                    vc_hash = vc_credential_hash(vc)
+                    logger.info(
+                        "🪪  \033[96mVerifiable Credential issued:\033[0m\n"
+                        "    Farmer DID : %s\n"
+                        "    Oracle DID : %s\n"
+                        "    VC Hash    : %s",
+                        did_badge_short(farmer_did),
+                        did_badge_short(oracle_did),
+                        vc_hash,
+                    )
+                    # Persist VC alongside the PDF certificate
+                    vc_path = Path(__file__).parent / "certificates" / f"VC_{plot_id}_{vc_hash[2:10].upper()}.json"
+                    vc_path.parent.mkdir(exist_ok=True)
+                    vc_path.write_text(vc_to_json(vc), encoding="utf-8")
+                    logger.info("📁  VC saved: %s", vc_path)
+                except Exception as vc_exc:
+                    logger.warning("⚠️  Verifiable Credential generation failed: %s", vc_exc)
+
                 # ── V2: Trigger Live Twilio Voice Call & Automated Alert ──
                 try:
                     alert_res = self._voice.trigger_automated_payout_alert(
