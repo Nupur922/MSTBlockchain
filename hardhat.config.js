@@ -1,4 +1,9 @@
 import '@nomicfoundation/hardhat-toolbox';
+import { config as dotenvConfig } from 'dotenv';
+import { resolve } from 'path';
+
+// Load .env from project root
+dotenvConfig({ path: resolve(process.cwd(), '.env') });
 
 /** @type import('hardhat/config').HardhatUserConfig */
 const config = {
@@ -30,25 +35,10 @@ const config = {
       timeout: 120000,
     },
   },
-  etherscan: {
-    apiKey: {
-      mst_testnet: 'no-api-key-required',
-    },
-    customChains: [
-      {
-        network: 'mst_testnet',
-        chainId: 91562037,
-        urls: {
-          apiURL: 'https://testnet.mstscan.com/api',
-          browserURL: 'https://testnet.mstscan.com',
-        },
-      },
-    ],
-  },
   paths: {
     sources: './contracts',
-    tests: './test',
-    cache: './cache',
+    tests:   './test',
+    cache:   './cache',
     artifacts: './artifacts',
   },
 };
