@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Users, CheckCircle, Loader2 } from 'lucide-react';
+import { TrendingUp, MapPin, CheckCircle, Zap } from 'lucide-react';
 import { ethers } from 'ethers';
 import { getFarmRegistryContract, getAgriTrustVaultContract } from '../utils/web3';
 
@@ -55,73 +55,89 @@ const StatCards = () => {
     return () => clearInterval(id);
   }, []);
 
-  const liveBadge = data.live
-    ? (
-      <span className="flex items-center space-x-1 bg-white/20 text-white text-[10px] font-bold rounded-full px-2 py-0.5">
-        <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse inline-block" />
-        <span>LIVE</span>
-      </span>
-    )
-    : (
-      <span className="flex items-center space-x-1 bg-white/20 text-white text-[10px] font-bold rounded-full px-2 py-0.5">
-        <span className="w-1.5 h-1.5 bg-white/70 rounded-full inline-block" />
-        <span>DEMO</span>
-      </span>
-    );
-
   const cards = [
     {
-      title:    'Escrow Pool Balance',
+      title:    'Total Escrow TVL',
       value:    data.escrowBalance ?? '—',
-      subtitle: 'MST Blockchain Vault',
-      icon:     DollarSign,
-      gradient: 'bg-gradient-to-br from-emerald-500 to-teal-600',
-      shadow:   'shadow-emerald-200',
+      subtitle: 'Total Value Locked',
+      icon:     TrendingUp,
+      gradient: 'from-emerald-400 to-teal-500',
+      iconBg:   'bg-emerald-500/20',
     },
     {
-      title:    'Enrolled Farm Plots',
+      title:    'Plots Registered',
       value:    data.plotCount ?? '—',
-      subtitle: 'Active Policies',
-      icon:     Users,
-      gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600',
-      shadow:   'shadow-blue-200',
+      subtitle: 'Active Farm Plots',
+      icon:     MapPin,
+      gradient: 'from-teal-400 to-cyan-500',
+      iconBg:   'bg-teal-500/20',
     },
     {
-      title:    'Total Claims Paid',
+      title:    'Payouts Executed',
       value:    data.claimsPaid ?? '—',
-      subtitle: 'DBT Disbursed',
+      subtitle: 'Relief Disbursed',
       icon:     CheckCircle,
-      gradient: 'bg-gradient-to-br from-purple-500 to-pink-600',
-      shadow:   'shadow-purple-200',
+      gradient: 'from-amber-400 to-orange-500',
+      iconBg:   'bg-amber-500/20',
+    },
+    {
+      title:    'Avg Settlement Time',
+      value:    '< 2',
+      subtitle: 'Seconds',
+      icon:     Zap,
+      gradient: 'from-purple-400 to-pink-500',
+      iconBg:   'bg-purple-500/20',
+      isStatic: true,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((card) => {
         const Icon = card.icon;
+        const isLoading = !card.isStatic && data.loading;
+        
         return (
           <div
             key={card.title}
-            className={`${card.gradient} rounded-2xl p-6 shadow-lg ${card.shadow} hover:shadow-xl transition-shadow`}
+            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-all group"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="bg-white/20 rounded-xl p-2">
-                <Icon className="w-6 h-6 text-white" />
-              </div>
-              {liveBadge}
+            {/* Icon with gradient background */}
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.gradient} ${card.iconBg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              <Icon className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-white/80 text-sm font-semibold mb-1">{card.title}</h3>
-            {data.loading ? (
-              <div className="flex items-center space-x-2 mt-2">
-                <Loader2 className="w-5 h-5 text-white/70 animate-spin" />
-                <span className="text-white/70 text-sm">Loading…</span>
+
+            {/* Label */}
+            <div className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-1">
+              {card.title}
+            </div>
+
+            {/* Value */}
+            {isLoading ? (
+              <div className="h-9 flex items-center">
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-emerald-500 rounded-full animate-spin" />
               </div>
             ) : (
-              <>
-                <p className="text-3xl font-black text-white">{card.value}</p>
-                <p className="text-white/60 text-xs mt-1 font-medium">{card.subtitle}</p>
-              </>
+              <div className="text-3xl font-black text-gray-900 mb-1">
+                {card.value}
+              </div>
+            )}
+
+            {/* Subtitle */}
+            <div className="text-xs text-gray-500 font-medium">
+              {card.subtitle}
+            </div>
+
+            {/* Live indicator for non-static cards */}
+            {!card.isStatic && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center space-x-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full ${data.live ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`} />
+                  <span className={`text-[10px] font-bold uppercase tracking-wide ${data.live ? 'text-emerald-600' : 'text-gray-400'}`}>
+                    {data.live ? 'Live Chain Data' : 'Demo Mode'}
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         );
