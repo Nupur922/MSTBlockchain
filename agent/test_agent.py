@@ -382,26 +382,50 @@ def t13_satellite_fetcher_offline():
                           [85.8977, 26.1234]]],
     }
 
-    optical = fetcher.fetch_sentinel2_optical(geojson, plot_id="TEST_01")
-    assert isinstance(optical, Sentinel2BandData)
-    assert optical.data_source == "simulated"
-    assert 0.0 <= optical.nir_band8 <= 1.0, f"NIR out of range: {optical.nir_band8}"
-    assert 0.0 <= optical.red_band4 <= 1.0, f"RED out of range: {optical.red_band4}"
+    # Force the "no credentials / offline" path deterministically. Previously
+    # this test asserted data_source == "simulated" while actually calling the
+    # live Copernicus API — it only passed while that API was returning HTTP 400.
+    # Now that the statistics requests succeed, the assertion must not depend on
+    # network state, so we disable credentials for the duration of the test.
+    # NOTE: `scenario="flood"` only re-simulates when the live fetch already
+    # failed (sentinel_fetcher re-simulates only if data_source == "simulated"),
+    # so every scenario assertion must happen while credentials are disabled.
+    session = fetcher._session
+    original_property = type(session).is_configured   # the property object, not its value
+    try:
+        type(session).is_configured = property(lambda self: False)
 
-    sar = fetcher.fetch_sentinel1_sar(geojson, plot_id="TEST_01")
-    assert isinstance(sar, Sentinel1SARData)
-    assert sar.data_source == "simulated"
-    assert len(sar.backscatter_db_series) > 0
-    # All dB values should be realistic (typically -30 to 0 dB for land)
-    for db in sar.backscatter_db_series:
-        assert -40.0 <= db <= 5.0, f"Unrealistic SAR value: {db} dB"
+        optical = fetcher.fetch_sentinel2_optical(geojson, plot_id="TEST_01")
+        assert isinstance(optical, Sentinel2BandData)
+        assert optical.data_source == "simulated", optical.data_source
+        assert 0.0 <= optical.nir_band8 <= 1.0, f"NIR out of range: {optical.nir_band8}"
+        assert 0.0 <= optical.red_band4 <= 1.0, f"RED out of range: {optical.red_band4}"
 
-    # Flood scenario simulation
-    sar_flood = fetcher.fetch_sentinel1_sar(geojson, plot_id="TEST_01", scenario="flood")
-    assert sar_flood.data_source == "simulated"
-    # Flood scenario should contain values below -15 dB
-    has_flood_values = any(db < -15.0 for db in sar_flood.backscatter_db_series)
-    assert has_flood_values, "Flood scenario SAR should have values < -15 dB"
+        sar = fetcher.fetch_sentinel1_sar(geojson, plot_id="TEST_01")
+        assert isinstance(sar, Sentinel1SARData)
+        assert sar.data_source == "simulated", sar.data_source
+        assert len(sar.backscatter_db_series) > 0
+        # All dB values should be realistic (typically -30 to 0 dB for land)
+        for db in sar.backscatter_db_series:
+            assert -40.0 <= db <= 5.0, f"Unrealistic SAR value: {db} dB"
+
+        # Flood scenario simulation
+        sar_flood = fetcher.fetch_sentinel1_sar(geojson, plot_id="TEST_01", scenario="flood")
+        assert sar_flood.data_source == "simulated", sar_flood.data_source
+        # Flood scenario should contain values below -15 dB
+        has_flood_values = any(db < -15.0 for db in sar_flood.backscatter_db_series)
+        assert has_flood_values, "Flood scenario SAR should have values < -15 dB"
+    finally:
+        type(session).is_configured = original_property
+
+    # With credentials present the fetcher must return a well-formed reading from
+    # EITHER source (live when the API answers, simulated on any network error) —
+    # these invariants hold regardless of connectivity.
+    optical_any = fetcher.fetch_sentinel2_optical(geojson, plot_id="TEST_01")
+    assert isinstance(optical_any, Sentinel2BandData)
+    assert optical_any.data_source in ("live", "simulated"), optical_any.data_source
+    assert 0.0 <= optical_any.nir_band8 <= 1.0, f"NIR out of range: {optical_any.nir_band8}"
+    assert 0.0 <= optical_any.red_band4 <= 1.0, f"RED out of range: {optical_any.red_band4}"
 
 
 # ---------------------------------------------------------------------------

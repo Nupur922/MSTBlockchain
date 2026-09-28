@@ -64,7 +64,21 @@ async function main() {
   const ORACLE_ROLE = await vault.ORACLE_ROLE();
   const grantTx = await vault.grantRole(ORACLE_ROLE, oracleAddress);
   await grantTx.wait();
+
+  // VERIFY the grant. AgriTrustVault.triggerDisasterPayout() is gated by
+  // onlyRole(ORACLE_ROLE), so if this ever fails the AI agent's payout txs all
+  // revert with "AccessControl: account ... is missing role". Failing loudly
+  // here converts that silent on-chain failure into an obvious deploy error.
+  const holdsOracleRole = await vault.hasRole(ORACLE_ROLE, oracleAddress);
+  if (!holdsOracleRole) {
+    throw new Error(
+      `ORACLE_ROLE was NOT granted to the oracle wallet ${oracleAddress}. ` +
+      'Every payout triggered by agent/sentinel_agent.py would revert. ' +
+      'Check ORACLE_PRIVATE_KEY in .env or agent/config/.env and redeploy.'
+    );
+  }
   console.log('🔑 Granted ORACLE_ROLE on AgriTrustVault to Oracle Address:', oracleAddress);
+  console.log('✅ Verified vault.hasRole(ORACLE_ROLE, oracle) === true');
 
   // 3. Register sample farm plots WITH government land-record identifiers (V2.0)
   const samplePlots = [
@@ -163,11 +177,20 @@ async function main() {
 
   const configJson = JSON.stringify(configData, null, 2);
 
-  // Frontend + agent both read `contract-addresses.json`, and the agent ALSO
-  // reads `contracts.json` — write every variant so the bridge never goes stale.
+  // contract-addresses.json keeps the rich {network, chainId, contracts, accounts}
+  // shape — frontend/src/utils/web3.js reads `.contracts.FarmRegistry` from it.
   for (const dir of [frontendOutputDir, agentOutputDir]) {
     fs.writeFileSync(path.join(dir, 'contract-addresses.json'), configJson);
-    fs.writeFileSync(path.join(dir, 'contracts.json'), configJson);
+  }
+
+  // contracts.json is the Developer-2 handoff file. agent/sentinel_agent.py,
+  // agent/proof_signer.py and agent/e2e_payout_test.py all accept BOTH this flat
+  // shape and the nested one, so we emit exactly what the integration spec asks
+  // for:
+  //     { "FarmRegistry": "0x...", "AgriTrustVault": "0x..." }
+  const contractsFlat = JSON.stringify(configData.contracts, null, 2) + '\n';
+  for (const dir of [frontendOutputDir, agentOutputDir]) {
+    fs.writeFileSync(path.join(dir, 'contracts.json'), contractsFlat);
   }
 
   const registryArtifact = await hre.artifacts.readArtifact('FarmRegistry');

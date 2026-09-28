@@ -5,7 +5,8 @@ import Header               from './components/Header';
 import StatCards            from './components/StatCards';
 import FarmMap              from './components/FarmMap';
 import PlotTelemetry        from './components/PlotTelemetry';
-import MultiHazardAnalyzer  from './components/MultiHazardAnalyzer';
+import MultiHazardAnalyzer       from './components/MultiHazardAnalyzer';
+import HistoricalClimateTracker  from './components/HistoricalClimateTracker';
 import DemoControlPanel     from './components/DemoControlPanel';
 import VoiceAlertModal      from './components/VoiceAlertModal';
 import AePSCashoutModal     from './components/AePSCashoutModal';
@@ -477,6 +478,12 @@ function App() {
 
         {/* V3 Multi-Hazard Analyzer Widget */}
         <MultiHazardAnalyzer activeTelemetry={activeTelemetry} />
+
+        {/* V3 7-Day Historical Climate & Telemetry Tracker */}
+        <HistoricalClimateTracker
+          activeTelemetry={activeTelemetry}
+          activeScenario={activeScenario}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
