@@ -74,9 +74,6 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Demo Control Panel</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Simulate AI Oracle flood detection scenarios (mimics Chhavi's sentinel_agent.py)
-          </p>
         </div>
         <div className="px-3 py-1 bg-amber-50 text-amber-600 border border-amber-200 text-xs font-bold rounded-full">
           SIMULATION MODE
@@ -109,16 +106,6 @@ const DemoControlPanel = ({ onTriggerScenario }) => {
         })}
       </div>
 
-      {/* Info Banner */}
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-        <div className="flex items-start space-x-3">
-          <AlertTriangle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-blue-700">
-            <span className="font-semibold">Note:</span> These buttons simulate the Python AI Oracle agent's multi-hazard detection (Flood SAR, Drought NDWI, Heatwave LST).
-            In production, the sentinel_agent.py monitors Sentinel-1/2 satellite data and automatically triggers parametric payouts in &lt;2 seconds.
-          </p>
-        </div>
-      </div>
     </div>
   );
 };
