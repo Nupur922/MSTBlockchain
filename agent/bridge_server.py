@@ -126,6 +126,33 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "payouts": True,
     },
     # ── Rejected / no-payout scenarios: no voice call, no WhatsApp ─────────
+    # ── NEW: Failure condition demos ─────────────────────────────────────────
+    "nonexistent-plot": {
+        "label": "Claim on Unregistered Plot (Rejected)",
+        "farmer_name": "Unknown",
+        "location": "Unknown Coordinates",
+        "state": "Unknown",
+        "language": "hindi",
+        "disaster_type": "Flood",
+        "damage_pct": 0.0,
+        "payout_ratio": 0.0,
+        "plot_id": "999",
+        "payouts": False,
+        "rejection_reason": "Plot ID 999 is not registered in FarmRegistry.sol — ecrecover verification failed. No policy exists.",
+    },
+    "crop-mismatch": {
+        "label": "Crop Mismatch Fraud (Claim Rejected)",
+        "farmer_name": "Rajesh Kumar",
+        "location": "Varanasi, Uttar Pradesh",
+        "state": "Uttar Pradesh",
+        "language": "hindi",
+        "disaster_type": "Flood",
+        "damage_pct": 0.0,
+        "payout_ratio": 0.0,
+        "plot_id": "3",
+        "payouts": False,
+        "rejection_reason": "Registered crop: Paddy (Rice). Claimed crop: Wheat. SAR texture does not match standing crop. Oracle rejected.",
+    },
     "harvest-confusion": {
         "label": "Harvest Stubble Shield (Claim Rejected)",
         "farmer_name": "Ram Singh",
@@ -365,9 +392,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             logger.info("🚫  Scenario '%s' rejected by oracle consensus — no dispatch.", scenario)
             self._send_json(200, {
                 "status": "rejected",
-                "reason": "2-of-3 oracle consensus did NOT approve this event — no payout dispatched",
+                "reason": spec.get("rejection_reason") or "2-of-3 oracle consensus did NOT approve this event — no payout dispatched",
                 "scenario": scenario,
                 "label": spec["label"],
+                "plot_id": spec.get("plot_id", ""),
             })
             return
 
