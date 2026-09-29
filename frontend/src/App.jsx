@@ -14,6 +14,7 @@ import QRScannerModal            from './components/QRScannerModal';
 import FarmerEnrollmentModal     from './components/FarmerEnrollmentModal';
 import PDFEvidenceModal          from './components/PDFEvidenceModal';
 import DeployTestnetModal        from './components/DeployTestnetModal';
+import ClaimVerificationModal    from './components/ClaimVerificationModal';
 import { FileText, QrCode, UserPlus, RefreshCw, Rocket } from 'lucide-react';
 
 import { 
@@ -107,6 +108,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
   const [showEnroll,      setShowEnroll]      = useState(false);
   const [showPDF,         setShowPDF]         = useState(false);
   const [showDeploy,      setShowDeploy]      = useState(false);
+  const [showFraudDemo,   setShowFraudDemo]   = useState(false);
 
   const telemetryRef   = useRef(HEALTHY_TELEMETRY);
   const contractRef    = useRef(null);
@@ -384,16 +386,22 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
         onClose={() => setShowDeploy(false)}
         onContractsDeployed={() => setMapRefreshKey((k) => k + 1)}
       />
+      <ClaimVerificationModal
+        isOpen={showFraudDemo}
+        onClose={() => setShowFraudDemo(false)}
+        onTriggerScenario={handleTriggerScenario}
+      />
 
       <main className="container mx-auto px-4 py-5 space-y-4 max-w-[1400px]">
 
         {/* ── Row 1: Stats Live from Chain ── */}
         <StatCards />
 
-        {/* ── Row 2: Disaster Simulation Control Panel (6 approved + 4 rejected + reset) ── */}
+        {/* ── Row 2: Disaster Simulation Control Panel ── */}
         <DemoControlPanel 
           onTriggerScenario={handleTriggerScenario} 
           activeScenario={activeScenario} 
+          onOpenFraudDemo={() => setShowFraudDemo(true)}
         />
 
         {/* ── Bridge Status Banner ── */}
