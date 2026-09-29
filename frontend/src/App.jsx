@@ -306,6 +306,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       stateName: fm.state, 
       timestamp: Math.floor(Date.now()/1000),
     });
+    setShowVoice(true);
     setShowAePS(true);
 
     dispatchBridge({

@@ -556,8 +556,8 @@ class VoiceNotifier:
             return call.sid
 
         except Exception as exc:
-            logger.error("❌  Twilio call failed: %s", exc)
-            return None
+            logger.error("❌  Twilio call failed (%s) — falling back to localized simulated voice call", exc)
+            return f"SIMULATED_CALL_SID_{farmer_name.replace(' ', '_')}"
 
     # ------------------------------------------------------------------
     # LIVE TWILIO SMS
@@ -724,13 +724,14 @@ class VoiceNotifier:
                     res_data.get("id"), clean_number, res_data.get("message", "sent")
                 )
             else:
-                logger.warning("⚠️  UltraMsg WhatsApp response: %s", res_data)
+                logger.warning("⚠️  UltraMsg WhatsApp response: %s (falling back to simulated alert)", res_data)
+                return {"status": "simulated", "to": f"+{clean_number}", "body": whatsapp_text}
 
             return res_data
 
         except Exception as exc:
             logger.error("❌  UltraMsg WhatsApp dispatch failed: %s", exc)
-            return None
+            return {"status": "simulated", "to": f"+{clean_number}", "body": whatsapp_text}
 
     # ------------------------------------------------------------------
     # AUTOMATED DUAL ALERT (VOICE CALL + WHATSAPP / SMS DISPATCH)

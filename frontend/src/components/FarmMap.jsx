@@ -4,14 +4,14 @@ import { MapPin, RefreshCw, AlertCircle, Wifi, WifiOff, UserPlus } from 'lucide-
 import 'leaflet/dist/leaflet.css';
 
 import { ethers } from 'ethers';
-import { getFarmRegistryContract } from '../utils/web3';
+import { getFarmRegistryContract, RPC_URL, HARDHAT_RPC_URL } from '../utils/web3';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MAJULI_CENTER = [26.95, 94.22];
 const DEFAULT_ZOOM  = 11;
 
-// Demo plots shown when Hardhat node is offline
+// Demo plots shown when offline
 const DEMO_FARM_PLOTS = [
   {
     id: 1,
@@ -77,7 +77,14 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
+      let provider;
+      try {
+        provider = new ethers.JsonRpcProvider(RPC_URL);
+        await provider.getNetwork();
+      } catch {
+        provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
+        await provider.getNetwork();
+      }
       const contract = getFarmRegistryContract(provider);
       if (!contract) throw new Error('Contract not initialised');
 
@@ -126,7 +133,7 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
     } catch (err) {
       console.warn('FarmRegistry offline:', err.message);
       setChainConnected(false);
-      setErrorMsg('Hardhat node offline — showing demo plots');
+      setErrorMsg('MST Blockchain offline — showing demo plots');
       setPlots(DEMO_FARM_PLOTS);
     } finally {
       setLoading(false);
@@ -191,7 +198,7 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
             chainConnected ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500 border border-gray-200'
           }`}>
             {chainConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-            <span>{chainConnected ? 'Live Chain' : 'Demo'}</span>
+            <span>{chainConnected ? 'MST Testnet' : 'Demo'}</span>
           </span>
 
           {/* Enroll Button */}
@@ -217,7 +224,7 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
       {errorMsg && !chainConnected && (
         <div className="flex items-center space-x-2 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
           <RefreshCw className="w-3.5 h-3.5 flex-shrink-0 animate-spin" />
-          <span>Connecting to Hardhat node — retrying every 5s…</span>
+          <span>Connecting to MST Blockchain — retrying every 5s…</span>
           <button onClick={fetchOnChainPlots} className="ml-auto underline font-bold hover:text-amber-900">Retry now</button>
         </div>
       )}
