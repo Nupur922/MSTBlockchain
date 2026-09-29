@@ -36,6 +36,9 @@ const SCENARIO_TELEMETRY = {
   'tn-harvest-rain':     { ndvi_score:0.20, sar_backscatter_db:-11.0, days_submerged:0,  ndwi_score:0.15,  lst_temp_c:26.0, status:'HARVEST_RAIN_CROP_LODGING',      payout_ratio:0.75, hazard_type:'HARVEST_RAIN_LODGING' },
   'harvest-confusion':   { ndvi_score:0.15, sar_backscatter_db:-8.0,  days_submerged:0,  ndwi_score:-0.10, lst_temp_c:28.0, status:'NORMAL_DRY_HARVEST_STUBBLE',     payout_ratio:0.0,  hazard_type:'NORMAL_HARVEST' },
   'ghost-crop-fraud':    { ndvi_score:0.55, sar_backscatter_db:-7.5,  days_submerged:0,  ndwi_score:0.05,  lst_temp_c:29.0, status:'GHOST_CROP_WEED_FRAUD_FLAGGED',  payout_ratio:0.0,  hazard_type:'GHOST_CROP_FRAUD_FLAGGED' },
+  // ── New failure demos ────────────────────────────────────────────────────
+  'nonexistent-plot':    { ndvi_score:0.60, sar_backscatter_db:-9.2,  days_submerged:0,  ndwi_score:-0.05, lst_temp_c:30.0, status:'PLOT_NOT_REGISTERED',            payout_ratio:0.0,  hazard_type:'NONE' },
+  'crop-mismatch':       { ndvi_score:0.45, sar_backscatter_db:-10.1, days_submerged:0,  ndwi_score:-0.08, lst_temp_c:31.5, status:'CROP_TYPE_MISMATCH_REJECTED',    payout_ratio:0.0,  hazard_type:'NONE' },
 };
 
 const HEALTHY_TELEMETRY = {
@@ -186,15 +189,22 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.status === 'success') {
         setBridgeStatus({ ok:true, text:`📞 Live call & WhatsApp → ${data.target_phone} · ₹${Number(data.payout_inr||0).toLocaleString('en-IN')} (${data.damage_pct}% damage)` });
-      } else if (data.status === 'skipped' || data.status === 'rejected') {
-        setBridgeStatus({ ok:false, text:`🚫 ${data.reason || 'No payout for this scenario.'}` });
+      } else if (data.status === 'rejected') {
+        setBridgeStatus({
+          ok: false,
+          isRejection: true,
+          text: `Oracle Rejected: ${data.label || data.scenario}`,
+          detail: data.reason || 'Claim rejected by 2-of-3 consensus.',
+        });
+      } else if (data.status === 'skipped') {
+        setBridgeStatus({ ok:false, text:`No payout for this scenario.` });
       } else {
         setBridgeStatus({ ok:false, text:`⚠️ Bridge: ${data.message || 'unconfirmed'}` });
       }
     } catch {
       setBridgeStatus({ ok:false, text:'⚠️ Bridge server offline (port 8000) — start with start_all.bat' });
     }
-    setTimeout(() => setBridgeStatus(null), 10000);
+    setTimeout(() => setBridgeStatus(null), 12000);
   }, []);
 
   // ── Scenario handler ──────────────────────────────────────────────────
@@ -206,7 +216,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
     const tel = SCENARIO_TELEMETRY[scenarioId] || HEALTHY_TELEMETRY;
     applyTelemetry(tel);
 
-    const noPayoutScenarios = ['harvest-confusion', 'ghost-crop-fraud'];
+    const noPayoutScenarios = ['harvest-confusion', 'ghost-crop-fraud', 'nonexistent-plot', 'crop-mismatch'];
     if (noPayoutScenarios.includes(scenarioId)) return;
 
     const farmerMap = {
@@ -275,10 +285,24 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
         {/* ── Bridge status banner ── */}
         {bridgeStatus && (
           <div className={`rounded-xl border px-4 py-3 text-sm font-medium flex items-center justify-between gap-3 ${
-            bridgeStatus.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'
+            bridgeStatus.ok
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : bridgeStatus.isRejection
+              ? 'bg-red-50 border-red-300 text-red-800'
+              : 'bg-amber-50 border-amber-200 text-amber-800'
           }`}>
-            <span>{bridgeStatus.text}</span>
-            <button onClick={()=>setBridgeStatus(null)} className="text-xs font-bold opacity-60 hover:opacity-100">✕</button>
+            <div className="flex items-start gap-2">
+              {bridgeStatus.isRejection && (
+                <span className="shrink-0 mt-0.5">🚫</span>
+              )}
+              <div>
+                <span className="font-bold">{bridgeStatus.text}</span>
+                {bridgeStatus.detail && (
+                  <p className="text-xs mt-1 opacity-80 font-normal">{bridgeStatus.detail}</p>
+                )}
+              </div>
+            </div>
+            <button onClick={()=>setBridgeStatus(null)} className="text-xs font-bold opacity-60 hover:opacity-100 shrink-0">✕</button>
           </div>
         )}
 
