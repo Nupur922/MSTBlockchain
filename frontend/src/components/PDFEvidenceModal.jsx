@@ -16,11 +16,12 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
     ? 'Periodic Patta (Dharitree Portal Ref: AS-MJL-2026-4421)' 
     : 'Bihar Bhumi Jamabandi Panji (Khatian Ref: BR-DBG-889102)';
   const disasterType = payoutEvent?.disasterType || (state === 'Assam' ? 'Brahmaputra Flash Flood' : 'Monsoon Kosi Flood');
-  const damagePct = payoutEvent?.damagePct || 76.0;
-  const payoutAmount = payoutEvent?.payoutAmount || '0.75';
-  const payoutINR = (parseFloat(payoutAmount) * 33333.33).toLocaleString('en-IN', { maximumFractionDigits: 0 }) || '25,000';
+  const payoutAmount = payoutEvent?.payoutAmount || '5.00';
+  const payoutINR = payoutEvent?.payoutInr ? Number(payoutEvent.payoutInr).toLocaleString('en-IN') : '25,000';
   const proofHash = payoutEvent?.proofHash || '0x4f8a91bc76de203918a994ef7162bca98164392019ab921c';
-  const txHash = payoutEvent?.txHash || '0x8f3a91bc24ef10c79184aa2758129e8dcD48A6461082f';
+  const txHash = payoutEvent?.txHash && payoutEvent.txHash !== '0xDEMO_PAYOUT_TX'
+    ? payoutEvent.txHash
+    : '0x002437013033c920154b7fa882881608b5df92e0568ea2384c337e76dd1355f6';
   const timestamp = new Date().toUTCString();
 
   // Generate client-side PDF using jsPDF (Clean, graph-free, professional certificate)
@@ -85,7 +86,7 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
         ['Geographic Location', location],
         ['State Jurisdiction', state],
         ['Uploaded Land Record', landDocType],
-        ['Beneficiary Wallet', payoutEvent?.farmer || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'],
+        ['Beneficiary Wallet', payoutEvent?.farmer || '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'],
       ];
 
       let yPos = 68;

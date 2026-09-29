@@ -325,7 +325,7 @@ class VoiceNotifier:
                 f"Namaste {farmer_name} ji! "
                 f"AgriTrust AI Satellite ne aapke khet mein {damage_pct:.0f} percent "
                 f"{disaster_type} nuksan confirm kiya hai. "
-                f"Rupaye {payout_inr:,.0f} ka rahat bhugtaan aapke bank mein bheja ja raha hai. "
+                f"5 MST token, yani kul pachis hazaar rupaye ka rahat bhugtaan aapke khate mein bhej diya gaya hai. "
                 f"Dhanyavaad."
             )
         else:
@@ -333,7 +333,7 @@ class VoiceNotifier:
                 f"Hello {farmer_name}. "
                 f"AgriTrust AI Satellite has confirmed {damage_pct:.0f} percent "
                 f"{disaster_type} damage on your farm plot. "
-                f"A relief payout of {payout_inr:,.0f} rupees has been transferred to your bank account. "
+                f"A relief payout of 5 MST tokens, equal to rupees {payout_inr:,.0f}, has been transferred to your account. "
                 f"Thank you."
             )
 
@@ -500,45 +500,45 @@ class VoiceNotifier:
                     f"Namaste {farmer_name} da! "
                     f"Eiya AgriTrust AI aru Krishi Sahayata Kendro-r aapatkaalin call hoi. "
                     f"Sentinel Satellite Radar-e aapunar khetot, {damage_pct_int} percent, {disaster_word} khotikhoya nischit koriche. "
-                    f"Aapunar bima sahayota bhugtaan, muth {payout_words} toka, seedhe aapunar bank account-ot pothiaai diya hoise. "
+                    f"Aapunar bima sahayota bhugtaan, paanch MST token, rupaye {payout_words} toka, seedhe aapunar bank account-ot pothiaai diya hoise. "
                     f"Aapuni ei dharor rashi nijor usoror Post Office ba Gramin Bank-ot goi, Aadhaar Card-or joriyote cash out koribo paribo. "
-                    f"Dohraai asu: {payout_words} toka safalatarere transfer kora hoise. "
+                    f"Dohraai asu: 5 MST token safalatarere transfer kora hoise. "
                     f"AgriTrust AI-r logot jorito thakar babe oshesh dhanyabad! Shubh din!"
                 )
-                repeat_text = f"Dohraai asu: {payout_words} toka sahayota bhugtaan aapunar khate pothiaai diya hoise. Dhanyabad!"
+                repeat_text = f"Dohraai asu: 5 MST token sahayota bhugtaan aapunar khate pothiaai diya hoise. Dhanyabad!"
             elif lang_key == "bhojpuri":
                 spoken_text = (
                     f"Pranam {farmer_name} bhaiya! "
                     f"E AgriTrust AI aur Krishi Sahayata Kendra ke aapatkaalin call ba. "
                     f"Hamar Sentinel Satellite radar aapke khet par, {damage_pct_int} percent, {disaster_word} ke nuksaan confirm karke ba. "
-                    f"Rauwa ke bima rahat bhugtaan, kul {payout_words} rupaya, seedhe rauwa ke bank khata mein bhej dihal gail ba. "
+                    f"Rauwa ke bima rahat bhugtaan, paanch MST token, kul {payout_words} rupaya, seedhe rauwa ke bank khata mein bhej dihal gail ba. "
                     f"Rauwa e paisa aapan nazdeeki Gramin Bank ya Post Office jaake, Aadhaar Card se turant nikaal sakat baani. "
-                    f"Dohraawat baani: {payout_words} rupaya safaltaapoorvak transfer ho gail ba. "
+                    f"Dohraawat baani: 5 MST token safaltaapoorvak transfer ho gail ba. "
                     f"AgriTrust AI se jude khatir bahut bahut dhanyavad! Rauwa ke din shubh rahe!"
                 )
-                repeat_text = f"Dohraawat baani: {payout_words} rupaya rahat bhugtaan rauwa ke bank mein transfer ho gail ba. Dhanyavad!"
+                repeat_text = f"Dohraawat baani: 5 MST token rahat bhugtaan rauwa ke bank mein transfer ho gail ba. Dhanyavad!"
             elif lang_key == "english":
                 spoken_text = (
                     f"Hello {farmer_name} ji! "
                     f"This is an automated emergency disaster relief alert from AgriTrust AI. "
                     f"Sentinel Satellite Radar has confirmed {damage_pct_int} percent {disaster_word} damage on your registered farm plot. "
-                    f"Your parametric crop insurance payout of {payout_words} rupees has been successfully transferred to your bank account. "
+                    f"Your parametric crop insurance payout of 5 MST tokens, {payout_words} rupees, has been successfully transferred to your account. "
                     f"You can cash out this relief money immediately at your nearest Post Office or Bank branch using your Aadhaar biometric. "
-                    f"Repeating: {payout_words} rupees has been credited. "
+                    f"Repeating: 5 MST tokens has been credited. "
                     f"Thank you for being with AgriTrust AI. Have a wonderful day!"
                 )
-                repeat_text = f"Repeating: {payout_words} rupees relief payout has been transferred to your bank account. Thank you!"
+                repeat_text = f"Repeating: 5 MST tokens relief payout has been transferred to your bank account. Thank you!"
             else:  # Hindi or default
                 spoken_text = (
                     f"Namaste {farmer_name} ji! "
                     f"Yeh AgriTrust AI aur Krishi Bima Sahayata Kendra ki taraf se zaroori aapatkaalin call hai. "
                     f"Humare Sentinel Satellite Radar ne aapke khet mein, {damage_pct_int} percent, {disaster_word} nuksaan ki pushti ki hai. "
-                    f"Aapka bima rahat bhugtaan, kul {payout_words} rupaye, seedhe aapke bank khate mein safaltaapoorvak bhej diya gaya hai. "
+                    f"Aapka bima rahat bhugtaan, paanch MST token, kul {payout_words} rupaye, seedhe aapke bank khate mein safaltaapoorvak bhej diya gaya hai. "
                     f"Aap yeh rashi apne nazdeeki Post Office ya Bank Branch par jakar, apne Aadhaar card se turant nikal sakte hain. "
-                    f"Dohra rahe hain: {payout_words} rupaye ka bima rahat bhugtaan transfer ho chuka hai. "
+                    f"Dohra rahe hain: 5 MST token ka bima rahat bhugtaan transfer ho chuka hai. "
                     f"AgriTrust AI se judne ke liye bahut bahut dhanyavaad. Shubh din!"
                 )
-                repeat_text = f"Dohra rahe hain: {payout_words} rupaye ka bima rahat bhugtaan aapke bank khate mein safaltaapoorvak bhej diya gaya hai. Dhanyavaad!"
+                repeat_text = f"Dohra rahe hain: 5 MST token ka bima rahat bhugtaan aapke bank khate mein safaltaapoorvak bhej diya gaya hai. Dhanyavaad!"
 
             voice, lang_code = TWILIO_VOICES.get(lang_key, ("Polly.Aditi", "hi-IN"))
 
@@ -695,15 +695,18 @@ class VoiceNotifier:
         if len(clean_number) == 10:
             clean_number = "91" + clean_number
 
+        tx_link = f"https://testnet.mstscan.com/tx/{tx_hash}" if len(str(tx_hash)) == 66 else "https://testnet.mstscan.com"
         whatsapp_text = (
             f"🌾 *AgriTrust AI — Parametric Disaster Relief Alert*\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"Namaste *{farmer_name} ji*,\n\n"
             f"🚨 *Disaster Event:* {disaster_type}\n"
             f"🛰️ *Satellite Damage:* {damage_pct:.0f}%\n"
-            f"💰 *Relief Payout:* *₹{payout_inr:,.0f}*\n"
+            f"💰 *Relief Payout:* *5.00 MST Tokens* (₹{payout_inr:,.0f})\n"
+            f"👤 *Farmer Wallet:* `0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC`\n"
             f"🏛️ *Bank Transfer:* Aadhaar-Linked Account (DBT)\n"
-            f"🔗 *MST Blockchain Tx:* `{tx_hash[:18]}...`\n\n"
+            f"🔗 *MST Blockchain Tx:* `{tx_hash}`\n"
+            f"🌐 *Explorer Link:* {tx_link}\n\n"
             f"✅ *Consensus Verification:* Copernicus Sentinel-1 SAR & Sentinel-2 Optical multi-source verification passed.\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🏛️ _AgriTrust AI Oracle Network — MST Blockchain_"

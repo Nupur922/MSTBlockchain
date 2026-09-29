@@ -234,9 +234,15 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.status === 'success') {
+        const txHash = data.tx_hash || payload.txHash;
+        setPayoutEvent((prev) => ({
+          ...prev,
+          txHash: txHash,
+        }));
         setBridgeStatus({ 
           ok:true, 
-          text:`📞 Live call & WhatsApp → ${data.target_phone} · ₹${Number(data.payout_inr||0).toLocaleString('en-IN')} (${data.damage_pct}% damage)` 
+          text:`📞 Live call & WhatsApp → ${data.target_phone} · 5.00 MST (~₹${Number(data.payout_inr||25000).toLocaleString('en-IN')}) (${data.damage_pct}% damage)`,
+          txHash: txHash
         });
       } else if (data.status === 'rejected') {
         setBridgeStatus({
@@ -253,7 +259,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
     } catch {
       setBridgeStatus({ ok:false, text:'⚠️ Bridge server offline (port 8000) — start with start_all.bat' });
     }
-    setTimeout(() => setBridgeStatus(null), 12000);
+    setTimeout(() => setBridgeStatus(null), 14000);
   }, []);
 
   // ── Scenario handler ──────────────────────────────────────────────────
@@ -289,23 +295,40 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
     }
 
     const farmerMap = {
-      'assam-flood':         { state:'Assam',       plotId:'1', amount:'0.50', name:'Prasanta Kalita' },
-      'bihar-flood':         { state:'Bihar',       plotId:'2', amount:'0.75', name:'Ram Singh' },
-      'maharashtra-drought': { state:'Maharashtra', plotId:'3', amount:'0.50', name:'Eknath Patil' },
-      'punjab-heatwave':     { state:'Punjab',      plotId:'4', amount:'0.40', name:'Gurpreet Singh' },
-      'karnataka-flood':     { state:'Karnataka',   plotId:'5', amount:'0.70', name:'Lakshmamma' },
-      'tn-harvest-rain':     { state:'Tamil Nadu',  plotId:'6', amount:'0.75', name:'Murugan' },
+      'assam-flood':         { state:'Assam',       plotId:'1', amount:'5.00', name:'Prasanta Kalita', wallet:'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' },
+      'bihar-flood':         { state:'Bihar',       plotId:'2', amount:'5.00', name:'Ram Singh',       wallet:'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BD' },
+      'maharashtra-drought': { state:'Maharashtra', plotId:'3', amount:'5.00', name:'Eknath Patil',   wallet:'0x70997970C51812dc3A010C7d01b50e0d17dc79C8' },
+      'punjab-heatwave':     { state:'Punjab',      plotId:'4', amount:'5.00', name:'Gurpreet Singh',  wallet:'0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65' },
+      'karnataka-flood':     { state:'Karnataka',   plotId:'5', amount:'5.00', name:'Lakshmamma',      wallet:'0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc' },
+      'tn-harvest-rain':     { state:'Tamil Nadu',  plotId:'6', amount:'5.00', name:'Murugan',         wallet:'0x976EA74026E726554dB657fA54763abd0C3a0aa9' },
     };
-    const fm = farmerMap[scenarioId] || { state:'Bihar', plotId:'1', amount:'0.50', name:'Farmer' };
-    const reliefInr = Math.round(INSURED_SUM_INR * (tel.payout_ratio || 0));
+    const fm = farmerMap[scenarioId] || { state:'Assam', plotId:'1', amount:'5.00', name:'Prasanta Kalita', wallet:'0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' };
+    const reliefInr = 25000;
+
+    let initialTxHash = null;
+    if (walletState.isConnected && walletState.signer && !walletState.isDemo) {
+      try {
+        const tx = await walletState.signer.sendTransaction({
+          to: fm.wallet,
+          value: ethers.parseEther('5.0')
+        });
+        initialTxHash = tx.hash;
+      } catch (err) {
+        console.warn('BridgeKey direct send deferred or skipped, bridge server will disburse on MST Testnet:', err);
+      }
+    }
 
     setPayoutEvent({
       policyId:'1', 
       plotId:fm.plotId,
-      farmer:'0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-      payoutAmount: fm.amount, 
+      farmer: fm.wallet,
+      farmerName: fm.name,
+      payoutAmount: '5.00', 
       payoutInr: reliefInr,
       stateName: fm.state, 
+      disasterType: tel.hazard_type?.includes('DROUGHT') ? 'Drought' : tel.hazard_type?.includes('HEAT') ? 'Heatwave' : 'Brahmaputra Flood',
+      damagePct: Math.round((tel.payout_ratio||0.65)*100),
+      txHash: initialTxHash || '0xDEMO_PAYOUT_TX',
       timestamp: Math.floor(Date.now()/1000),
     });
     setShowVoice(true);
@@ -317,13 +340,15 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       state: fm.state,
       location: `${STATE_CITY[fm.state]||fm.state}, ${fm.state}`,
       farmerName: fm.name,
-      damagePct: Math.round((tel.payout_ratio||0)*100),
-      payoutRatio: tel.payout_ratio||0,
+      farmerWallet: fm.wallet,
+      damagePct: Math.round((tel.payout_ratio||0.65)*100),
+      payoutRatio: tel.payout_ratio||0.65,
+      payoutMst: '5.0',
       payoutInr: reliefInr,
       disasterType: tel.hazard_type?.includes('DROUGHT') ? 'Drought' : tel.hazard_type?.includes('HEAT') ? 'Heatwave' : 'Flood',
-      txHash: randomTxHash(),
+      txHash: initialTxHash || '0xDEMO_PAYOUT_TX',
     });
-  }, [applyTelemetry, dispatchBridge]);
+  }, [applyTelemetry, dispatchBridge, walletState]);
 
   const handleFarmerSelect = (farmer) => {
     setSelectedFarmer(farmer);
@@ -419,6 +444,19 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
               )}
               <div>
                 <span className="font-bold">{bridgeStatus.text}</span>
+                {bridgeStatus.txHash && bridgeStatus.txHash !== '0xDEMO_PAYOUT_TX' && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-emerald-700">Tx: {bridgeStatus.txHash.slice(0, 10)}...{bridgeStatus.txHash.slice(-8)}</span>
+                    <a
+                      href={`https://testnet.mstscan.com/tx/${bridgeStatus.txHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] font-bold text-emerald-800 underline hover:text-emerald-950"
+                    >
+                      View on MSTScan Explorer ↗
+                    </a>
+                  </div>
+                )}
                 {bridgeStatus.detail && (
                   <p className="text-xs mt-1 opacity-80 font-normal">{bridgeStatus.detail}</p>
                 )}

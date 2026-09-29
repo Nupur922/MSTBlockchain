@@ -428,7 +428,30 @@ class BridgeHandler(BaseHTTPRequestHandler):
         location = str(payload.get("location") or spec["location"])
         state = str(payload.get("state") or spec["state"])
         plot_id = str(payload.get("plotId") or spec["plot_id"])
-        tx_hash = str(payload.get("txHash") or "0xDEMO_PAYOUT_TX")
+        farmer_wallet = str(payload.get("farmerWallet") or "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
+        payout_mst = float(payload.get("payoutMst") or 5.0)
+        payout_inr = 25000.0  # Fixed ₹25,000 for 5.0 MST payout
+        tx_hash = str(payload.get("txHash") or "")
+
+        # If not provided with a real 66-character on-chain hash from BridgeKey, disburse on MST Testnet
+        if not tx_hash or tx_hash.startswith("0xDEMO") or len(tx_hash) < 66:
+            try:
+                import subprocess, json as py_json
+                script_path = str(agent_dir.parent / "scripts" / "send_payout.cjs")
+                res = subprocess.run(["node", script_path, farmer_wallet, str(payout_mst)], capture_output=True, text=True, timeout=12)
+                for line in res.stdout.strip().splitlines():
+                    if "hash" in line:
+                        parsed = py_json.loads(line)
+                        if parsed.get("hash"):
+                            tx_hash = parsed["hash"]
+                            logger.info("⚡ Real On-Chain MST Testnet Tx Confirmed: %s", tx_hash)
+                            break
+            except Exception as e:
+                logger.warning("Could not execute on-chain disburse script: %s", e)
+
+        if not tx_hash:
+            tx_hash = "0xDEMO_PAYOUT_TX"
+
         language = str(payload.get("language") or spec["language"])
         disaster_type = str(payload.get("disasterType") or spec["disaster_type"])
         target_phone = resolve_target_phone(payload.get("phone"))
@@ -436,7 +459,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         notifier = VoiceNotifierFactory.get()
 
         logger.info(
-            "📞 Triggering live phone call + WhatsApp | %s (%s) | plot %s | %.1f%% damage | ₹%s | %s",
+            "📞 Triggering live phone call + WhatsApp | %s (%s) | plot %s | %.1f%% damage | 5.0 MST (₹%s) | %s",
             farmer_name, scenario, plot_id, damage_pct, f"{payout_inr:,.0f}", language,
         )
 
@@ -468,11 +491,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
             "state": state,
             "plot_id": plot_id,
             "farmer_name": farmer_name,
+            "farmer_wallet": farmer_wallet,
             "location": location,
             "language": language,
             "disaster_type": disaster_type,
             "damage_pct": damage_pct,
             "payout_inr": payout_inr,
+            "payout_mst": payout_mst,
             "target_phone": target_phone,
             "call_sid": result.get("call_sid"),
             "whatsapp": (

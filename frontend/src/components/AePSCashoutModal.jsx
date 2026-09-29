@@ -250,8 +250,8 @@ const AePSCashoutModal = ({ isOpen, onClose, payoutAmount, payoutInr, plotId, fa
                       ₹{reliefInr.toLocaleString('en-IN')}
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
-                    {payoutAmount || '—'} MST on-chain (1 MST ≡ ₹1)
+                  <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">
+                    {payoutAmount || '5.00'} MST on-chain (Direct DBT Conversion)
                   </p>
                 </div>
               </div>
