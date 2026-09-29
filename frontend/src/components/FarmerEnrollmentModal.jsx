@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, UserPlus, Loader2, CheckCircle, AlertCircle, MapPin, Leaf } from 'lucide-react';
 import { ethers } from 'ethers';
 import { getFarmRegistryContract } from '../utils/web3';
+import { connectBridgeKey, switchOrAddMSTTestnet } from '../utils/bridgekey';
 
 // ─── Preset GeoJSON templates for quick demo fills ───────────────────────────
 // All coordinates are real existing farmland in flood/drought-prone zones of India.
@@ -132,7 +133,7 @@ const INDIAN_STATES = [
   'Gujarat', 'West Bengal', 'Uttar Pradesh', 'Rajasthan', 'Odisha', 'Kerala',
 ];
 
-const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
+const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled, walletState }) => {
   const [step, setStep] = useState(STEP.FORM);
 
   // Form fields
@@ -152,6 +153,16 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   const [plotId,   setPlotId]   = useState(null);
   const [errMsg,   setErrMsg]   = useState('');
 
+  // Reset form and step every time modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setStep(STEP.FORM);
+      setErrMsg('');
+      setTxHash('');
+      setPlotId(null);
+    }
+  }, [isOpen]);
+
   // ── Validation helpers ────────────────────────────────────────────────────
   const isValidAddress = (addr) => /^0x[0-9a-fA-F]{40}$/.test(addr);
   const isValidGeoJson = (s) => {
@@ -163,7 +174,7 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
   const canSubmit = isValidAddress(farmerWallet) && isValidGeoJson(geoJson) && isValidAcreage(acreageStr)
     && khasraNo.trim().length > 0 && stateName.trim().length > 0;
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit via BridgeKey Wallet ──────────────────────────────────────────
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setStep(STEP.CONFIRMING);
@@ -171,20 +182,41 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
     setTxHash('');
 
     try {
-      // HACKATHON BYPASS: Use hardhat local node directly with Admin private key 
-      // instead of MetaMask to make the demo 1-click seamless and 10x faster!
-      const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
-      // Hardhat Account #0 private key (which has KRISHI_MITRA_ROLE)
-      const signer = new ethers.Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', provider);
+      // 1. Obtain user's connected BridgeKey signer
+      let signer = walletState?.signer;
+      let isMSTTestnet = walletState?.isMSTTestnet;
 
+      if (!signer) {
+        const conn = await connectBridgeKey();
+        signer = conn.signer;
+        isMSTTestnet = conn.isMSTTestnet;
+      }
+
+      // 2. Ensure wallet is on MST Testnet
+      if (!isMSTTestnet) {
+        try {
+          await switchOrAddMSTTestnet();
+        } catch (switchErr) {
+          throw new Error('Please switch your BridgeKey wallet to MST Testnet to submit transactions.');
+        }
+      }
+
+      // 3. Obtain FarmRegistry contract with BridgeKey Signer
       const contract = getFarmRegistryContract(signer);
-      if (!contract) throw new Error('FarmRegistry contract not available. Deploy contracts first.');
+      if (!contract) {
+        throw new Error('FarmRegistry contract not available. Please verify contract deployment and address configuration.');
+      }
 
       // acreage is stored ×100 in Solidity (e.g. 2.5 acres → 250)
       const acreageScaled = Math.round(parseFloat(acreageStr) * 100);
 
-      // V2.0: registerFarmPlot(ownerWallet, polygonGeoJSON, acreage, cropType,
-      //                        khasraNumber, khataNumber, stateName, districtName)
+      // 4. Request user authorization & signature in BridgeKey
+      console.log('📝 Submitting registerFarmPlot via BridgeKey:', {
+        farmerWallet,
+        cropType,
+        acreageScaled,
+      });
+
       const tx = await contract.registerFarmPlot(
         farmerWallet,
         geoJson,
@@ -193,29 +225,35 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
         khasraNo.trim(),
         khataNo.trim() || 'N/A',
         stateName.trim(),
-        districtName.trim() || stateName.trim(),
+        districtName.trim() || stateName.trim()
       );
 
       setTxHash(tx.hash);
-      const receipt = await tx.wait();
+      console.log('🚀 Transaction broadcasted to MST Testnet:', tx.hash);
 
-      // Extract plotId from FarmPlotRegistered event
+      // 5. Wait for on-chain block confirmation
+      const receipt = await tx.wait();
+      console.log('✅ Transaction confirmed on MST Testnet. Receipt:', receipt);
+
+      // 6. Extract plotId from FarmPlotRegistered event
       let newPlotId = null;
-      for (const log of receipt.logs) {
-        try {
-          const parsed = contract.interface.parseLog(log);
-          if (parsed?.name === 'FarmPlotRegistered') {
-            newPlotId = parsed.args.plotId.toString();
-            break;
-          }
-        } catch { /* ignore non-matching logs */ }
+      if (receipt.logs) {
+        for (const log of receipt.logs) {
+          try {
+            const parsed = contract.interface.parseLog(log);
+            if (parsed?.name === 'FarmPlotRegistered') {
+              newPlotId = parsed.args.plotId.toString();
+              break;
+            }
+          } catch { /* ignore non-matching logs */ }
+        }
       }
 
       setPlotId(newPlotId);
       setStep(STEP.SUCCESS);
 
       // Notify parent to refresh map
-      if (onEnrolled) onEnrolled({ plotId: newPlotId, farmerWallet, cropType, geoJson, khasraNumber: khasraNo, khataNumber: khataNo, stateName, districtName });
+      if (onEnrolled) onEnrolled({ plotId: newPlotId, farmerWallet, cropType, geoJson, khasraNumber: khasraNo, khataNumber: khataNo, stateName, districtName, txHash: tx.hash });
 
     } catch (err) {
       console.warn('Live RPC enrollment note:', err.message);
@@ -231,15 +269,23 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
         setPlotId(mockPlotId);
         setStep(STEP.SUCCESS);
 
-        if (onEnrolled) onEnrolled({ plotId: mockPlotId, farmerWallet, cropType, geoJson, khasraNumber: khasraNo, khataNumber: khataNo, stateName, districtName });
+        if (onEnrolled) onEnrolled({ plotId: mockPlotId, farmerWallet, cropType, geoJson, khasraNumber: khasraNo, khataNumber: khataNo, stateName, districtName, txHash: mockTx });
         return;
       }
 
+      console.error('Enrollment transaction failed:', err);
       let msg = err.message ?? 'Unknown error';
-      if (msg.includes('KRISHI_MITRA_ROLE'))      msg = 'Your wallet does not have Krishi Mitra role. Ask the admin to grant KRISHI_MITRA_ROLE to your address.';
-      else if (msg.includes('user rejected'))      msg = 'Transaction rejected in MetaMask.';
-      else if (msg.includes('could not detect'))   msg = 'Cannot connect to Hardhat node. Make sure `npx hardhat node` is running.';
-      else if (msg.includes('network changed'))    msg = 'Network changed. Please switch MetaMask to Hardhat Local (Chain ID: 31337).';
+
+      if (err.code === 4001 || msg.includes('rejected') || msg.includes('User denied')) {
+        msg = 'Transaction was rejected in BridgeKey.';
+      } else if (msg.includes('KRISHI_MITRA_ROLE') || msg.includes('missing role')) {
+        msg = 'Your connected BridgeKey address does not have the KRISHI_MITRA_ROLE. The contract admin must grant KRISHI_MITRA_ROLE to this address.';
+      } else if (msg.includes('insufficient funds')) {
+        msg = 'Insufficient $MSTC in your BridgeKey wallet for gas fees. Please claim 10 MSTC from https://faucet.masterstroke.academy.';
+      } else if (msg.includes('BridgeKey wallet extension is not installed')) {
+        msg = 'BridgeKey wallet extension is not installed. Please install it from the Chrome Web Store.';
+      }
+
       setErrMsg(msg);
       setStep(STEP.ERROR);
     }
@@ -461,16 +507,24 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                 <Loader2 className="w-16 h-16 text-emerald-600 animate-spin" />
               </div>
               <div>
-                <h3 className="font-bold text-gray-900 text-lg">Broadcasting Transaction…</h3>
-                <p className="text-sm text-gray-500 mt-1">Confirm in MetaMask and wait for block confirmation</p>
+                <h3 className="font-bold text-gray-900 text-lg">Approve in BridgeKey Wallet</h3>
+                <p className="text-sm text-gray-500 mt-1">Please confirm the transaction in the BridgeKey extension popup and wait for block confirmation on MST Testnet</p>
               </div>
               {txHash && (
-                <div className="p-3 bg-gray-50 rounded-xl text-left border border-gray-200">
+                <div className="p-3 bg-gray-50 rounded-xl text-left border border-emerald-200">
                   <p className="text-xs text-gray-500 mb-1">Transaction Hash:</p>
-                  <p className="font-mono text-xs text-gray-700 break-all">{txHash}</p>
+                  <p className="font-mono text-xs text-emerald-700 break-all">{txHash}</p>
+                  <a
+                    href={`https://testnet.mstscan.com/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block mt-2 text-xs font-semibold text-emerald-600 hover:text-emerald-700 underline"
+                  >
+                    View on MSTScan ↗
+                  </a>
                 </div>
               )}
-              <p className="text-xs text-gray-400">Calling <code className="bg-gray-100 px-1 rounded">FarmRegistry.registerFarmPlot()</code> on Hardhat local node…</p>
+              <p className="text-xs text-gray-400">Broadcasting <code>FarmRegistry.registerFarmPlot()</code> to MST Testnet (Chain ID 91562037)…</p>
             </div>
           )}
 
@@ -482,10 +536,10 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
               </div>
               <div>
                 <h3 className="font-bold text-emerald-900 text-xl">Farm Plot Enrolled! 🎉</h3>
-                <p className="text-sm text-gray-500 mt-1">Successfully registered on MST Blockchain</p>
+                <p className="text-sm text-gray-500 mt-1">Successfully registered on MST Testnet Blockchain</p>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 text-sm border border-gray-200">
+              <div className="bg-gray-50 rounded-xl p-4 text-left space-y-2 text-sm border border-gray-100">
                 {plotId && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Plot ID:</span>
@@ -504,20 +558,30 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                   <span className="text-gray-500">Acreage:</span>
                   <span className="font-semibold text-gray-900">{acreageStr} acres</span>
                 </div>
-                <div className="border-t border-gray-200 pt-2 mt-2">
-                  <p className="text-xs text-gray-500 mb-1">TX Hash:</p>
+                <div className="border-t pt-2">
+                  <p className="text-xs text-gray-500 mb-1">MST Testnet TX Hash:</p>
                   <p className="font-mono text-xs text-gray-700 break-all">{txHash}</p>
+                  {txHash && (
+                    <a
+                      href={`https://testnet.mstscan.com/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-1 mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-700"
+                    >
+                      <span>Verify on MSTScan</span>
+                      <span>↗</span>
+                    </a>
+                  )}
                 </div>
               </div>
 
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800">
-                <strong>Next step:</strong> The admin must call <code className="bg-blue-100 px-1 rounded">createPolicy()</code> on AgriTrustVault to
-                insure this plot. Then the AI oracle can trigger payouts when flood is detected.
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                <strong>Verified On-Chain:</strong> The farm plot is recorded on MST Testnet Layer 1. The NEWRRO AI Sentinel Agent will monitor this land parcel boundary via Sentinel-1 SAR & Sentinel-2 NDVI.
               </div>
 
               <button
                 onClick={handleClose}
-                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white py-3 rounded-xl font-bold transition-all hover:shadow-lg shadow-md"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold transition-colors shadow-md"
               >
                 Close &amp; Refresh Map
               </button>

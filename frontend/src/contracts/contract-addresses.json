@@ -1,12 +1,14 @@
 {
-  "network": "localhost",
-  "chainId": 31337,
+  "network": "mstTestnet",
+  "chainId": 91562037,
+  "rpcUrl": "https://testnetrpc.mstblockchain.com",
+  "explorerUrl": "https://testnet.mstscan.com",
   "contracts": {
-    "FarmRegistry": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
-    "AgriTrustVault": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
+    "FarmRegistry": "0xDA6Fe875D30Bd4329415625b845fC7b4Fb859C9b",
+    "AgriTrustVault": "0x69AC2F2687D0434e83309bFD62cB5d511E02519b"
   },
   "accounts": {
-    "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "deployer": "0xDA6Fe875D30Bd4329415625b845fC7b4Fb859C9b",
     "aiOracleWallet": "0x1d9e8dcD48A6461082fF16790512D4c38D4eed27",
     "farmerWallet": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
   }

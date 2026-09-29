@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mstblockchain/mst-sdk": "^1.0.0",
     "ethers": "^6.10.0",
     "jspdf": "^4.2.1",
     "jsqr": "^1.4.0",

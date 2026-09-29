@@ -13,11 +13,16 @@ import AePSCashoutModal          from './components/AePSCashoutModal';
 import QRScannerModal            from './components/QRScannerModal';
 import FarmerEnrollmentModal     from './components/FarmerEnrollmentModal';
 import PDFEvidenceModal          from './components/PDFEvidenceModal';
-import { FileText, QrCode, UserPlus, RefreshCw } from 'lucide-react';
+import DeployTestnetModal        from './components/DeployTestnetModal';
+import { FileText, QrCode, UserPlus, RefreshCw, Rocket } from 'lucide-react';
 
-import { getAgriTrustVaultContract, getFarmRegistryContract } from './utils/web3';
+import { 
+  getAgriTrustVaultContract, 
+  getFarmRegistryContract, 
+  RPC_URL, 
+  HARDHAT_RPC_URL 
+} from './utils/web3';
 
-const RPC_URL             = import.meta.env?.VITE_MST_RPC_URL || 'http://127.0.0.1:8545';
 const EVENT_RETRY_MS      = 8000;
 export const INSURED_SUM_INR = 40000;
 
@@ -36,7 +41,6 @@ const SCENARIO_TELEMETRY = {
   'tn-harvest-rain':     { ndvi_score:0.20, sar_backscatter_db:-11.0, days_submerged:0,  ndwi_score:0.15,  lst_temp_c:26.0, status:'HARVEST_RAIN_CROP_LODGING',      payout_ratio:0.75, hazard_type:'HARVEST_RAIN_LODGING' },
   'harvest-confusion':   { ndvi_score:0.15, sar_backscatter_db:-8.0,  days_submerged:0,  ndwi_score:-0.10, lst_temp_c:28.0, status:'NORMAL_DRY_HARVEST_STUBBLE',     payout_ratio:0.0,  hazard_type:'NORMAL_HARVEST' },
   'ghost-crop-fraud':    { ndvi_score:0.55, sar_backscatter_db:-7.5,  days_submerged:0,  ndwi_score:0.05,  lst_temp_c:29.0, status:'GHOST_CROP_WEED_FRAUD_FLAGGED',  payout_ratio:0.0,  hazard_type:'GHOST_CROP_FRAUD_FLAGGED' },
-  // ── New failure demos ────────────────────────────────────────────────────
   'nonexistent-plot':    { ndvi_score:0.60, sar_backscatter_db:-9.2,  days_submerged:0,  ndwi_score:-0.05, lst_temp_c:30.0, status:'PLOT_NOT_REGISTERED',            payout_ratio:0.0,  hazard_type:'NONE' },
   'crop-mismatch':       { ndvi_score:0.45, sar_backscatter_db:-10.1, days_submerged:0,  ndwi_score:-0.08, lst_temp_c:31.5, status:'CROP_TYPE_MISMATCH_REJECTED',    payout_ratio:0.0,  hazard_type:'NONE' },
 };
@@ -47,7 +51,6 @@ const HEALTHY_TELEMETRY = {
   payout_ratio:0.0, hazard_type:'NONE',
 };
 
-// Demo farmers shown in sidebar (fetched from blockchain or fallback)
 const DEMO_FARMERS = [
   { id:1, name:'Prasanta Kalita', state:'Assam',       district:'Majuli',     crop:'Sali Paddy', acreage:1.8, khasra:'Patta #104/B',     scenario:'assam-flood',         did:'did:mst:farmer:0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc' },
   { id:2, name:'Ram Singh',       state:'Bihar',       district:'Darbhanga',  crop:'Paddy',      acreage:2.5, khasra:'Khatiyan #214/A',  scenario:'bihar-flood',          did:'did:mst:farmer:0x3c44cdddb6a900fa2b585dd299e03d12fa4293bd' },
@@ -70,6 +73,22 @@ const HAZARD_COLOR = {
 const randomTxHash = () => '0x' + Array.from({length:64}, () => '0123456789abcdef'[Math.floor(Math.random()*16)]).join('');
 
 function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sharedFarmer, onFarmerSelect }) {
+  // ── BridgeKey wallet state ───────────────────────────────────────────────
+  const [walletState, setWalletState] = useState({
+    isConnected: false,
+    address: '',
+    chainId: null,
+    isMSTTestnet: false,
+    isDemo: false,
+    provider: null,
+    signer: null,
+  });
+
+  const handleWalletChange = useCallback((newState) => {
+    setWalletState((prev) => ({ ...prev, ...newState }));
+  }, []);
+
+  // ── Scenario / map state ──────────────────────────────────────────────────
   const [activeScenario,  setActiveScenario]  = useState(null);
   const [activeTelemetry, setActiveTelemetry] = useState(HEALTHY_TELEMETRY);
   const [qrScannedPlot,   setQrScannedPlot]   = useState(null);
@@ -81,11 +100,13 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
   const [chainStatus,     setChainStatus]     = useState('disconnected');
   const [mapRefreshKey,   setMapRefreshKey]   = useState(0);
 
+  // ── Modal visibility ──────────────────────────────────────────────────────
   const [showVoice,       setShowVoice]       = useState(false);
   const [showAePS,        setShowAePS]        = useState(false);
   const [showQR,          setShowQR]          = useState(false);
   const [showEnroll,      setShowEnroll]      = useState(false);
   const [showPDF,         setShowPDF]         = useState(false);
+  const [showDeploy,      setShowDeploy]      = useState(false);
 
   const telemetryRef   = useRef(HEALTHY_TELEMETRY);
   const contractRef    = useRef(null);
@@ -107,11 +128,11 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       for (let i = 1; i <= total; i++) {
         const plot = await registry.getFarmPlot(i);
         const addr = plot.ownerWallet?.toLowerCase();
-        if (!farmerMap.has(addr)) {
+        if (addr && !farmerMap.has(addr)) {
           let did = '';
           try { did = await registry.getFarmerDID(addr); } catch {}
           if (!did) did = `did:mst:farmer:${addr}`;
-          const demo = DEMO_FARMERS.find(f => f.did.includes(addr));
+          const demo = DEMO_FARMERS.find(f => f.did?.toLowerCase().includes(addr));
           farmerMap.set(addr, {
             id: i,
             name: demo?.name || `Farmer ${addr.slice(0,6)}…${addr.slice(-4)}`,
@@ -125,13 +146,14 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
             plots: [],
           });
         }
-        farmerMap.get(addr).plots = farmerMap.get(addr).plots || [];
-        farmerMap.get(addr).plots.push({ id: i, ...plot });
+        if (addr && farmerMap.has(addr)) {
+          farmerMap.get(addr).plots.push({ id: i, ...plot });
+        }
       }
       const list = Array.from(farmerMap.values());
       if (list.length > 0) setFarmers(list);
     } catch {
-      // Blockchain offline — use demo roster
+      // Blockchain offline or unreachable — use fallback demo roster
     }
     setFarmersLoading(false);
   }, []);
@@ -139,20 +161,39 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
   // ── Chain event listener ──────────────────────────────────────────────
   const setupEventListener = useCallback(async () => {
     try {
-      const provider = new ethers.JsonRpcProvider(RPC_URL);
-      await provider.getNetwork();
+      let provider;
+      try {
+        provider = new ethers.JsonRpcProvider(RPC_URL);
+        await provider.getNetwork();
+      } catch {
+        provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
+        await provider.getNetwork();
+      }
+
       const contract = getAgriTrustVaultContract(provider);
-      if (!contract) { setChainStatus('error'); return; }
+      if (!contract) {
+        chainStatusRef.current = 'error';
+        setChainStatus('error');
+        return;
+      }
+
       contractRef.current = contract;
+      contract.removeAllListeners?.();
+
       contract.on('DisasterPayoutExecuted', (policyId, plotId, farmer, amountWei, proofHash, timestamp) => {
         setPayoutEvent({
-          policyId: policyId.toString(), plotId: plotId.toString(), farmer,
+          policyId: policyId.toString(),
+          plotId: plotId.toString(),
+          farmer,
           payoutAmount: ethers.formatEther(amountWei),
           payoutInr: Number(ethers.formatEther(amountWei)),
-          proofHash, timestamp: Number(timestamp),
+          proofHash,
+          timestamp: Number(timestamp),
         });
+        setShowVoice(true);
         setShowAePS(true);
       });
+
       chainStatusRef.current = 'listening';
       setChainStatus('listening');
     } catch {
@@ -168,7 +209,10 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       if (chainStatusRef.current !== 'listening') setupEventListener();
     }, EVENT_RETRY_MS);
     if (onRegisterScenarioHandler) onRegisterScenarioHandler(handleTriggerScenario);
-    return () => { clearInterval(retry); contractRef.current?.removeAllListeners?.(); };
+    return () => { 
+      clearInterval(retry); 
+      contractRef.current?.removeAllListeners?.(); 
+    };
   }, []);
 
   // ── Telemetry helpers ─────────────────────────────────────────────────
@@ -188,7 +232,10 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.status === 'success') {
-        setBridgeStatus({ ok:true, text:`📞 Live call & WhatsApp → ${data.target_phone} · ₹${Number(data.payout_inr||0).toLocaleString('en-IN')} (${data.damage_pct}% damage)` });
+        setBridgeStatus({ 
+          ok:true, 
+          text:`📞 Live call & WhatsApp → ${data.target_phone} · ₹${Number(data.payout_inr||0).toLocaleString('en-IN')} (${data.damage_pct}% damage)` 
+        });
       } else if (data.status === 'rejected') {
         setBridgeStatus({
           ok: false,
@@ -210,17 +257,37 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
   // ── Scenario handler ──────────────────────────────────────────────────
   const handleTriggerScenario = useCallback(async (scenarioId) => {
     if (scenarioId === 'reset') {
-      setActiveScenario(null); applyTelemetry(HEALTHY_TELEMETRY); return;
+      setActiveScenario(null); 
+      applyTelemetry(HEALTHY_TELEMETRY); 
+      setBridgeStatus(null);
+      return;
     }
     setActiveScenario(scenarioId);
     const tel = SCENARIO_TELEMETRY[scenarioId] || HEALTHY_TELEMETRY;
     applyTelemetry(tel);
 
-    const noPayoutScenarios = ['harvest-confusion', 'ghost-crop-fraud', 'nonexistent-plot', 'crop-mismatch'];
-    if (noPayoutScenarios.includes(scenarioId)) return;
+    // Rejection / failure scenarios
+    const rejectionScenarios = {
+      'nonexistent-plot': { label: 'Invalid Plot', reason: 'Plot ID 999 not found in FarmRegistry. EIP-191 proof verification fails; zero payout.' },
+      'crop-mismatch': { label: 'Crop Mismatch', reason: 'Enrolled for Paddy, claim filed for Wheat. SAR radar texture and Sentinel-2 phenology do not match registered crop.' },
+      'harvest-confusion': { label: 'Stubble Shield', reason: 'NDVI drop is caused by seasonal dry harvest stubble, not flood/drought damage. Parametric claim rejected.' },
+      'ghost-crop-fraud': { label: 'Ghost Crop Fraud', reason: 'Pre-existing weed vegetation flagged at enrollment. Non-cultivated land fraud detected.' },
+    };
+
+    if (rejectionScenarios[scenarioId]) {
+      const rej = rejectionScenarios[scenarioId];
+      setBridgeStatus({
+        ok: false,
+        isRejection: true,
+        text: `Oracle Rejected: ${rej.label}`,
+        detail: rej.reason,
+      });
+      setTimeout(() => setBridgeStatus(null), 12000);
+      return;
+    }
 
     const farmerMap = {
-      'assam-flood':         { state:'Assam',       plotId:'1', amount:'0.5',  name:'Prasanta Kalita' },
+      'assam-flood':         { state:'Assam',       plotId:'1', amount:'0.50', name:'Prasanta Kalita' },
       'bihar-flood':         { state:'Bihar',       plotId:'2', amount:'0.75', name:'Ram Singh' },
       'maharashtra-drought': { state:'Maharashtra', plotId:'3', amount:'0.50', name:'Eknath Patil' },
       'punjab-heatwave':     { state:'Punjab',      plotId:'4', amount:'0.40', name:'Gurpreet Singh' },
@@ -231,15 +298,20 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
     const reliefInr = Math.round(INSURED_SUM_INR * (tel.payout_ratio || 0));
 
     setPayoutEvent({
-      policyId:'1', plotId:fm.plotId,
+      policyId:'1', 
+      plotId:fm.plotId,
       farmer:'0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-      payoutAmount: fm.amount, payoutInr: reliefInr,
-      stateName: fm.state, timestamp: Math.floor(Date.now()/1000),
+      payoutAmount: fm.amount, 
+      payoutInr: reliefInr,
+      stateName: fm.state, 
+      timestamp: Math.floor(Date.now()/1000),
     });
     setShowAePS(true);
 
     dispatchBridge({
-      scenario: scenarioId, plotId: fm.plotId, state: fm.state,
+      scenario: scenarioId, 
+      plotId: fm.plotId, 
+      state: fm.state,
       location: `${STATE_CITY[fm.state]||fm.state}, ${fm.state}`,
       farmerName: fm.name,
       damagePct: Math.round((tel.payout_ratio||0)*100),
@@ -255,34 +327,75 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
     onFarmerSelect?.(farmer);
   };
 
+  const handlePlotScanned = (scannedData) => {
+    setQrScannedPlot(scannedData);
+    setShowQR(false);
+  };
+
+  const handleEnrolled = () => {
+    setMapRefreshKey((k) => k + 1);
+    setShowEnroll(false);
+    loadFarmers();
+  };
+
   const hazardBadgeClass = HAZARD_COLOR[activeTelemetry.hazard_type] || HAZARD_COLOR.NONE;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <Header walletState={walletState} onWalletChange={handleWalletChange} />
 
-      {/* Modals */}
-      <VoiceAlertModal isOpen={showVoice} onClose={()=>setShowVoice(false)} onOpenPDF={()=>setShowPDF(true)}
-        payoutAmount={payoutEvent.payoutAmount} plotId={payoutEvent.plotId} stateName={payoutEvent.stateName} />
-      <AePSCashoutModal isOpen={showAePS} onClose={()=>setShowAePS(false)}
-        payoutAmount={payoutEvent.payoutAmount} payoutInr={payoutEvent.payoutInr}
-        plotId={payoutEvent.plotId} farmerAddress={payoutEvent.farmer} />
-      <QRScannerModal isOpen={showQR} onClose={()=>setShowQR(false)}
-        onPlotScanned={(d)=>{ setQrScannedPlot(d); setShowQR(false); }} />
-      <FarmerEnrollmentModal isOpen={showEnroll} onClose={()=>setShowEnroll(false)}
-        onEnrolled={()=>{ setMapRefreshKey(k=>k+1); setShowEnroll(false); loadFarmers(); }} />
-      <PDFEvidenceModal isOpen={showPDF} onClose={()=>setShowPDF(false)}
-        plotData={qrScannedPlot} payoutEvent={payoutEvent} />
+      {/* ── Modals ── */}
+      <VoiceAlertModal 
+        isOpen={showVoice} 
+        onClose={() => setShowVoice(false)} 
+        onOpenPDF={() => setShowPDF(true)}
+        payoutAmount={payoutEvent.payoutAmount} 
+        plotId={payoutEvent.plotId} 
+        stateName={payoutEvent.stateName} 
+      />
+      <AePSCashoutModal 
+        isOpen={showAePS} 
+        onClose={() => setShowAePS(false)}
+        payoutAmount={payoutEvent.payoutAmount} 
+        payoutInr={payoutEvent.payoutInr}
+        plotId={payoutEvent.plotId} 
+        farmerAddress={payoutEvent.farmer} 
+      />
+      <QRScannerModal 
+        isOpen={showQR} 
+        onClose={() => setShowQR(false)}
+        onPlotScanned={handlePlotScanned} 
+      />
+      <FarmerEnrollmentModal 
+        isOpen={showEnroll} 
+        onClose={() => setShowEnroll(false)}
+        onEnrolled={handleEnrolled} 
+        walletState={walletState}
+      />
+      <PDFEvidenceModal 
+        isOpen={showPDF} 
+        onClose={() => setShowPDF(false)}
+        plotData={qrScannedPlot} 
+        payoutEvent={payoutEvent} 
+      />
+      <DeployTestnetModal
+        isOpen={showDeploy}
+        onClose={() => setShowDeploy(false)}
+        onContractsDeployed={() => setMapRefreshKey((k) => k + 1)}
+      />
 
       <main className="container mx-auto px-4 py-5 space-y-4 max-w-[1400px]">
 
-        {/* ── Row 1: Stats ── */}
+        {/* ── Row 1: Stats Live from Chain ── */}
         <StatCards />
 
-        {/* ── Row 2: Demo Control Panel ── */}
-        <DemoControlPanel onTriggerScenario={handleTriggerScenario} activeScenario={activeScenario} />
+        {/* ── Row 2: Disaster Simulation Control Panel (6 approved + 4 rejected + reset) ── */}
+        <DemoControlPanel 
+          onTriggerScenario={handleTriggerScenario} 
+          activeScenario={activeScenario} 
+        />
 
-        {/* ── Bridge status banner ── */}
+        {/* ── Bridge Status Banner ── */}
         {bridgeStatus && (
           <div className={`rounded-xl border px-4 py-3 text-sm font-medium flex items-center justify-between gap-3 ${
             bridgeStatus.ok
@@ -302,11 +415,16 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
                 )}
               </div>
             </div>
-            <button onClick={()=>setBridgeStatus(null)} className="text-xs font-bold opacity-60 hover:opacity-100 shrink-0">✕</button>
+            <button 
+              onClick={() => setBridgeStatus(null)} 
+              className="text-xs font-bold opacity-60 hover:opacity-100 shrink-0"
+            >
+              ✕
+            </button>
           </div>
         )}
 
-        {/* ── Row 3: Main two-column layout ── */}
+        {/* ── Row 3: Main Two-Column Layout ── */}
         <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4">
 
           {/* ── LEFT: Farmer Selector Panel ── */}
@@ -322,13 +440,19 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
                   </p>
                 </div>
                 <div className="flex gap-1.5">
-                  <button onClick={loadFarmers} disabled={farmersLoading}
+                  <button 
+                    onClick={loadFarmers} 
+                    disabled={farmersLoading}
                     className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors disabled:opacity-50"
-                    title="Refresh from blockchain">
+                    title="Refresh from blockchain"
+                  >
                     <RefreshCw className={`w-3.5 h-3.5 ${farmersLoading ? 'animate-spin' : ''}`} />
                   </button>
-                  <button onClick={()=>setShowEnroll(true)}
-                    className="p-1.5 rounded-lg hover:bg-emerald-100 text-emerald-600 transition-colors" title="Enroll new farmer">
+                  <button 
+                    onClick={() => setShowEnroll(true)}
+                    className="p-1.5 rounded-lg hover:bg-emerald-100 text-emerald-600 transition-colors" 
+                    title="Enroll new farmer"
+                  >
                     <UserPlus className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -363,11 +487,11 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
                           )}
                         </div>
                         <p className="text-[11px] text-slate-500 truncate">{farmer.state} · {farmer.district}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">{farmer.crop} · {farmer.acreage.toFixed(1)} ac</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 truncate">{farmer.crop} · {farmer.acreage?.toFixed(1)} ac</p>
 
                         {/* DID */}
                         <p className="text-[9px] font-mono text-emerald-600 mt-1 truncate" title={farmer.did}>
-                          {farmer.did.slice(0, 36)}…
+                          {farmer.did?.slice(0, 36)}…
                         </p>
                       </div>
                     </button>
@@ -376,20 +500,26 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
               </div>
             </div>
 
-            {/* Action buttons */}
+            {/* Action buttons (Grid of 3 + Deploy testnet) */}
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={()=>setShowPDF(true)}
-                className="flex flex-col items-center gap-1 py-3 bg-white rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-600 hover:text-emerald-700 transition-all shadow-sm text-xs font-medium">
+              <button 
+                onClick={() => setShowPDF(true)}
+                className="flex flex-col items-center gap-1 py-3 bg-white rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 text-slate-600 hover:text-emerald-700 transition-all shadow-sm text-xs font-medium"
+              >
                 <FileText className="w-4 h-4" />
                 <span>PDF Cert</span>
               </button>
-              <button onClick={()=>setShowQR(true)}
-                className="flex flex-col items-center gap-1 py-3 bg-white rounded-xl border border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 text-slate-600 hover:text-indigo-700 transition-all shadow-sm text-xs font-medium">
+              <button 
+                onClick={() => setShowQR(true)}
+                className="flex flex-col items-center gap-1 py-3 bg-white rounded-xl border border-slate-200 hover:bg-indigo-50 hover:border-indigo-300 text-slate-600 hover:text-indigo-700 transition-all shadow-sm text-xs font-medium"
+              >
                 <QrCode className="w-4 h-4" />
                 <span>Scan QR</span>
               </button>
-              <button onClick={()=>setShowEnroll(true)}
-                className="flex flex-col items-center gap-1 py-3 bg-white rounded-xl border border-slate-200 hover:bg-green-50 hover:border-green-300 text-slate-600 hover:text-green-700 transition-all shadow-sm text-xs font-medium">
+              <button 
+                onClick={() => setShowEnroll(true)}
+                className="flex flex-col items-center gap-1 py-3 bg-white rounded-xl border border-slate-200 hover:bg-green-50 hover:border-green-300 text-slate-600 hover:text-green-700 transition-all shadow-sm text-xs font-medium"
+              >
                 <UserPlus className="w-4 h-4" />
                 <span>Enroll</span>
               </button>
@@ -427,7 +557,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
                   </p>
                   <div className="mt-2 pt-2 border-t border-slate-200 space-y-1 text-[9px] text-slate-500 font-mono">
                     <div className="flex gap-1"><span className="text-slate-400">type:</span><span>EcdsaSecp256k1Verification</span></div>
-                    <div className="flex gap-1"><span className="text-slate-400">chain:</span><span>eip155:31337</span></div>
+                    <div className="flex gap-1"><span className="text-slate-400">chain:</span><span>eip155:91562037</span></div>
                     <div className="flex gap-1"><span className="text-slate-400">issued by:</span><span>did:mst:oracle:newrro-ai</span></div>
                   </div>
                 </div>
@@ -462,8 +592,12 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
 
             {/* Farm Map + Plot Telemetry side by side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <FarmMap key={mapRefreshKey} qrScannedPlot={qrScannedPlot}
-                activeScenario={activeScenario} onEnrollClick={()=>setShowEnroll(true)} />
+              <FarmMap 
+                key={mapRefreshKey} 
+                qrScannedPlot={qrScannedPlot}
+                activeScenario={activeScenario} 
+                onEnrollClick={() => setShowEnroll(true)} 
+              />
               <PlotTelemetry activeTelemetry={activeTelemetry} />
             </div>
           </div>

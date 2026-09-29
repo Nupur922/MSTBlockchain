@@ -1,9 +1,10 @@
 import '@nomicfoundation/hardhat-toolbox';
-import { config as dotenvConfig } from 'dotenv';
-import { resolve } from 'path';
+import dotenv from 'dotenv';
+dotenv.config();
 
-// Load .env from project root
-dotenvConfig({ path: resolve(process.cwd(), '.env') });
+const accounts = (process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY)
+  ? [process.env.DEPLOYER_PRIVATE_KEY || process.env.PRIVATE_KEY]
+  : [];
 
 /** @type import('hardhat/config').HardhatUserConfig */
 const config = {
@@ -23,22 +24,57 @@ const config = {
       url: 'http://127.0.0.1:8545',
       chainId: 31337,
     },
-    // MST Testnet (submission requirement)
+    // MST Testnet (Chain ID 91562037)
     mst_testnet: {
-      url: 'https://testnetrpc.mstblockchain.com',
+      url: process.env.MST_TESTNET_RPC_URL || 'https://testnetrpc.mstblockchain.com',
       chainId: 91562037,
-      accounts: process.env.DEPLOYER_PRIVATE_KEY
-        ? [process.env.DEPLOYER_PRIVATE_KEY]
-        : [],
+      accounts: accounts,
       gasPrice: 'auto',
       gas: 'auto',
       timeout: 120000,
     },
+    mstTestnet: {
+      url: process.env.MST_TESTNET_RPC_URL || 'https://testnetrpc.mstblockchain.com',
+      chainId: 91562037,
+      accounts: accounts,
+      gasPrice: 'auto',
+      gas: 'auto',
+      timeout: 120000,
+    },
+    mstMainnet: {
+      url: 'https://mariorpc.mstblockchain.com',
+      chainId: 4646,
+      accounts: accounts,
+    },
+  },
+  etherscan: {
+    apiKey: {
+      mstTestnet: process.env.MSTSCAN_API_KEY || 'empty',
+      mst_testnet: process.env.MSTSCAN_API_KEY || 'empty',
+    },
+    customChains: [
+      {
+        network: 'mstTestnet',
+        chainId: 91562037,
+        urls: {
+          apiURL: 'https://testnet.mstscan.com/api',
+          browserURL: 'https://testnet.mstscan.com',
+        },
+      },
+      {
+        network: 'mst_testnet',
+        chainId: 91562037,
+        urls: {
+          apiURL: 'https://testnet.mstscan.com/api',
+          browserURL: 'https://testnet.mstscan.com',
+        },
+      },
+    ],
   },
   paths: {
     sources: './contracts',
-    tests:   './test',
-    cache:   './cache',
+    tests: './test',
+    cache: './cache',
     artifacts: './artifacts',
   },
 };

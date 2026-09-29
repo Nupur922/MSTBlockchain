@@ -111,14 +111,6 @@ contract AgriTrustVault is AccessControl, ReentrancyGuard, Pausable {
         require(payoutAmountMST > 0, "Payout must be > 0");
         require(address(this).balance >= payoutAmountMST, "Insufficient vault escrow balance");
 
-        uint256 policyId = plotToPolicyId[plotId];
-        require(policyId > 0, "No active policy for plot");
-
-        Policy storage policy = policies[policyId];
-        require(policy.isActive, "Policy is not active");
-        // Parametric payout can never exceed the underwritten sum insured for the plot
-        require(payoutAmountMST <= policy.insuredAmountMST, "Payout exceeds insured sum");
-
         // 1. Construct proof hash
         bytes32 proofHash = keccak256(
             abi.encodePacked(plotId, payoutAmountMST, timestamp, block.chainid, address(this))
@@ -126,6 +118,14 @@ contract AgriTrustVault is AccessControl, ReentrancyGuard, Pausable {
 
         // 2. Signature Replay Protection
         require(!executedProofs[proofHash], "Proof signature already executed");
+
+        uint256 policyId = plotToPolicyId[plotId];
+        require(policyId > 0, "No active policy for plot");
+
+        Policy storage policy = policies[policyId];
+        require(policy.isActive, "Policy is not active");
+        // Parametric payout can never exceed the underwritten sum insured for the plot
+        require(payoutAmountMST <= policy.insuredAmountMST, "Payout exceeds insured sum");
 
         // 3. Cryptographic EIP-191 Signature Verification
         bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(proofHash);
