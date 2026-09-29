@@ -63,7 +63,9 @@ const AppRouter = () => {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  if (route === '#/krishi') {
+  const isKrishiRoute = route === '#/krishi' || route === '#/krishi/' || route === '#krishi' || route.startsWith('#/krishi');
+
+  if (isKrishiRoute) {
     return (
       <AppKrishiMitra
         activeTelemetry={activeTelemetry}

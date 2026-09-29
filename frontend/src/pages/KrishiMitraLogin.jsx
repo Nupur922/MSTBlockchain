@@ -11,8 +11,9 @@
  * - Zero centralized auth server
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { ShieldCheck, Info, Key, CheckCircle, ArrowRight } from 'lucide-react';
 
 const KrishiMitraLogin = ({ onLoginSuccess }) => {
   const [walletAddress, setWalletAddress] = useState('');
@@ -101,9 +102,10 @@ const KrishiMitraLogin = ({ onLoginSuccess }) => {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
+      const registryAddress = contractAddresses.default?.contracts?.FarmRegistry || contractAddresses.contracts?.FarmRegistry || contractAddresses.FarmRegistry;
       const farmRegistry = new ethers.Contract(
-        contractAddresses.FarmRegistry,
-        FarmRegistryABI.abi,
+        registryAddress,
+        FarmRegistryABI.abi || FarmRegistryABI.default?.abi || FarmRegistryABI,
         signer
       );
 

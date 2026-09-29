@@ -11,7 +11,7 @@
  *  - onBackToMain navigates back to the main dashboard (hash route)
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import KrishiMitraLogin  from './pages/KrishiMitraLogin';
 import FarmerDashboard   from './pages/FarmerDashboard';
 

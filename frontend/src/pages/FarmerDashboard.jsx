@@ -13,7 +13,7 @@
  *  - onBackToMain      : callback to return to the main dashboard
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 
 // ── Demo farmer roster (used when blockchain is offline / no MetaMask) ───────
