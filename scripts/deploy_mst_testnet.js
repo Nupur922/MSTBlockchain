@@ -66,7 +66,11 @@ async function main() {
     farmerAddress,
     sampleGeoJSON,
     250, // 2.5 Acres
-    'Paddy (Rice)'
+    'Paddy (Rice)',
+    'Khasra #104/B',
+    'Khata #27/3',
+    'Bihar',
+    'Darbhanga'
   );
   await regTx.wait();
   console.log('✅ Farm Plot #1 registered on-chain for:', farmerAddress);

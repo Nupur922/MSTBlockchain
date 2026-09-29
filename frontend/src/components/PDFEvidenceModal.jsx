@@ -65,7 +65,7 @@ const PDFEvidenceModal = ({ isOpen, onClose, plotData, payoutEvent }) => {
       doc.text(`Certificate No: CERT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`, 15, 46);
       doc.setFont('helvetica', 'normal');
       doc.text(`Issue Timestamp: ${timestamp}`, 195, 46, { align: 'right' });
-      doc.text(`Chain Status: MST Mainnet Verified (Chain ID: 31337)`, 15, 51);
+      doc.text(`Chain Status: MST Testnet Verified (Chain ID: 91562037)`, 15, 51);
       doc.text(`Smart Contract: AgriTrustVault.sol`, 195, 51, { align: 'right' });
 
       // Divider line

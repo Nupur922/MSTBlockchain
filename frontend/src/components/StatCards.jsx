@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, MapPin, CheckCircle, Zap } from 'lucide-react';
 import { ethers } from 'ethers';
-import { getFarmRegistryContract, getAgriTrustVaultContract } from '../utils/web3';
+import { getFarmRegistryContract, getAgriTrustVaultContract, RPC_URL, HARDHAT_RPC_URL } from '../utils/web3';
 
-const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
-const REFRESH_MS      = 10000;
+const REFRESH_MS = 10000;
 
 const StatCards = () => {
   const [data, setData] = useState({
@@ -17,18 +16,37 @@ const StatCards = () => {
 
   const fetchStats = async () => {
     try {
-      const provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
-      await provider.getNetwork();
+      let provider;
+      try {
+        provider = new ethers.JsonRpcProvider(RPC_URL);
+        await provider.getNetwork();
+      } catch {
+        provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
+        await provider.getNetwork();
+      }
 
       const vault    = getAgriTrustVaultContract(provider);
       const registry = getFarmRegistryContract(provider);
       if (!vault || !registry) throw new Error('Contracts not ready');
 
-      const [balanceWei, plotCount, claimsPaidWei] = await Promise.all([
-        vault.getVaultBalance(),       // ✅ Janaki's real method (not getEscrowBalance)
-        registry.getPlotCount(),       // ✅ Janaki's real method (not plotCounter)
-        vault.totalClaimsPaidMST(),    // ✅ Janaki's real state var
-      ]);
+      let balanceWei = 0n;
+      try {
+        balanceWei = await vault.getVaultBalance();
+      } catch {
+        try {
+          balanceWei = await vault.getEscrowBalance();
+        } catch {}
+      }
+
+      let plotCount = 0n;
+      try {
+        plotCount = await registry.getPlotCount();
+      } catch {}
+
+      let claimsPaidWei = 0n;
+      try {
+        claimsPaidWei = await vault.totalClaimsPaidMST();
+      } catch {}
 
       setData({
         escrowBalance: parseFloat(ethers.formatEther(balanceWei)).toFixed(3) + ' MST',

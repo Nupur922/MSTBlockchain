@@ -115,6 +115,10 @@ async function main() {
     sampleGeoJSON,
     300,          // 3.0 acres
     'Paddy (Rice)',
+    'Khasra #104/B',
+    'Khata #27/3',
+    'Bihar',
+    'Darbhanga'
   );
   await regTx.wait();
   console.log(`✅  Farm Plot #1 registered`);
