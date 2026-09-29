@@ -4,66 +4,115 @@ import { ethers } from 'ethers';
 import { getFarmRegistryContract } from '../utils/web3';
 
 // ─── Preset GeoJSON templates for quick demo fills ───────────────────────────
+// All coordinates are real existing farmland in flood/drought-prone zones of India.
 const GEO_PRESETS = [
   {
-    label: 'Darbhanga, Bihar (Kosi Basin)',
+    label: 'Majuli Island, Assam (Brahmaputra Flood Basin)',
+    state: 'Assam',
+    district: 'Majuli',
+    farmerName: 'Prasanta Kalita',
+    cropType: 'Paddy (Rice)',
+    khasra: 'Patta No. 104/B',
+    khata: 'Khata 27/3',
+    acreage: 1.8,
+    geoJson: JSON.stringify({
+      type: 'Polygon',
+      coordinates: [[[94.1840,26.9520],[94.1865,26.9522],[94.1863,26.9505],[94.1838,26.9503],[94.1840,26.9520]]]
+    }, null, 2),
+  },
+  {
+    label: 'Darbhanga, Bihar (Kosi River Flood Zone)',
     state: 'Bihar',
+    district: 'Darbhanga',
+    farmerName: 'Ram Singh',
+    cropType: 'Paddy (Rice)',
+    khasra: 'Khatiyan Plot 214/A',
+    khata: 'Khata 883/21',
+    acreage: 2.5,
     geoJson: JSON.stringify({
       type: 'Polygon',
       coordinates: [[[85.8971,26.1522],[85.8985,26.1525],[85.8982,26.1510],[85.8968,26.1508],[85.8971,26.1522]]]
     }, null, 2),
   },
   {
-    label: 'Majuli Island, Assam (Brahmaputra)',
-    state: 'Assam',
-    geoJson: JSON.stringify({
-      type: 'Polygon',
-      coordinates: [[[94.20,26.96],[94.20,26.97],[94.22,26.97],[94.22,26.96],[94.20,26.96]]]
-    }, null, 2),
-  },
-  {
-    label: 'Nashik, Maharashtra (Godavari Basin)',
+    label: 'Niphad, Nashik Maharashtra (Godavari Drought Belt)',
     state: 'Maharashtra',
+    district: 'Nashik',
+    farmerName: 'Eknath Patil',
+    cropType: 'Grapes / Onion',
+    khasra: '7/12 Extract 88/2',
+    khata: 'Gat No. 142/3',
+    acreage: 3.2,
     geoJson: JSON.stringify({
       type: 'Polygon',
-      coordinates: [[[73.7898,19.9975],[73.7920,19.9975],[73.7920,19.9950],[73.7898,19.9950],[73.7898,19.9975]]]
+      coordinates: [[[74.1050,20.0820],[74.1075,20.0820],[74.1075,20.0795],[74.1050,20.0795],[74.1050,20.0820]]]
     }, null, 2),
   },
   {
-    label: 'Anand, Gujarat (Charotar Belt)',
+    label: 'Samrala, Ludhiana Punjab (Wheat Heatwave Belt)',
+    state: 'Punjab',
+    district: 'Ludhiana',
+    farmerName: 'Gurpreet Singh',
+    cropType: 'Wheat',
+    khasra: 'Jamabandi 45/1',
+    khata: 'Khata 448/12',
+    acreage: 4.0,
+    geoJson: JSON.stringify({
+      type: 'Polygon',
+      coordinates: [[[76.1920,30.7315],[76.1948,30.7315],[76.1948,30.7290],[76.1920,30.7290],[76.1920,30.7315]]]
+    }, null, 2),
+  },
+  {
+    label: 'Pandavapura, Mandya Karnataka (Cauvery Basin)',
+    state: 'Karnataka',
+    district: 'Mandya',
+    farmerName: 'Lakshmamma',
+    cropType: 'Sugarcane / Paddy',
+    khasra: 'RTC Hissa 112/3',
+    khata: 'Pahani 45/A',
+    acreage: 2.8,
+    geoJson: JSON.stringify({
+      type: 'Polygon',
+      coordinates: [[[76.6790,12.4950],[76.6815,12.4950],[76.6815,12.4925],[76.6790,12.4925],[76.6790,12.4950]]]
+    }, null, 2),
+  },
+  {
+    label: 'Papanasam, Thanjavur Tamil Nadu (Cauvery Delta)',
+    state: 'Tamil Nadu',
+    district: 'Thanjavur',
+    farmerName: 'Murugan',
+    cropType: 'Samba Paddy',
+    khasra: 'Patta 78/1A',
+    khata: 'Chitta 22/5',
+    acreage: 2.1,
+    geoJson: JSON.stringify({
+      type: 'Polygon',
+      coordinates: [[[79.2730,10.9240],[79.2755,10.9240],[79.2755,10.9215],[79.2730,10.9215],[79.2730,10.9240]]]
+    }, null, 2),
+  },
+  {
+    label: 'Petlad, Anand Gujarat (Charotar Tobacco Belt)',
     state: 'Gujarat',
+    district: 'Anand',
+    farmerName: 'Ramesh Patel',
+    cropType: 'Tobacco / Cotton',
+    khasra: 'Survey 89/1',
+    khata: 'Khata 112/4',
+    acreage: 1.5,
     geoJson: JSON.stringify({
       type: 'Polygon',
       coordinates: [[[72.9289,22.5645],[72.9315,22.5645],[72.9315,22.5620],[72.9289,22.5620],[72.9289,22.5645]]]
     }, null, 2),
   },
   {
-    label: 'Mandya, Karnataka (Cauvery Basin)',
-    state: 'Karnataka',
-    geoJson: JSON.stringify({
-      type: 'Polygon',
-      coordinates: [[[76.8958,12.5218],[76.8985,12.5218],[76.8985,12.5190],[76.8958,12.5190],[76.8958,12.5218]]]
-    }, null, 2),
-  },
-  {
-    label: 'Ludhiana, Punjab (Sutlej Basin)',
-    state: 'Punjab',
-    geoJson: JSON.stringify({
-      type: 'Polygon',
-      coordinates: [[[75.8573,30.9010],[75.8600,30.9010],[75.8600,30.8985],[75.8573,30.8985],[75.8573,30.9010]]]
-    }, null, 2),
-  },
-  {
-    label: 'Thanjavur, Tamil Nadu (Delta Zone)',
-    state: 'Tamil Nadu',
-    geoJson: JSON.stringify({
-      type: 'Polygon',
-      coordinates: [[[79.1378,10.7870],[79.1405,10.7870],[79.1405,10.7845],[79.1378,10.7845],[79.1378,10.7870]]]
-    }, null, 2),
-  },
-  {
-    label: 'Burdwan, West Bengal (Damodar Belt)',
+    label: 'Burdwan, West Bengal (Damodar Flood Belt)',
     state: 'West Bengal',
+    district: 'Burdwan',
+    farmerName: 'Suresh Mondal',
+    cropType: 'Paddy (Rice)',
+    khasra: 'Dag No. 334/2',
+    khata: 'Khatiyan 88/A',
+    acreage: 1.2,
     geoJson: JSON.stringify({
       type: 'Polygon',
       coordinates: [[[87.8615,23.2324],[87.8640,23.2324],[87.8640,23.2300],[87.8615,23.2300],[87.8615,23.2324]]]
@@ -363,7 +412,11 @@ const FarmerEnrollmentModal = ({ isOpen, onClose, onEnrolled }) => {
                       onClick={() => {
                         setGeoJson(p.geoJson);
                         setStateName(p.state);
-                        setDistrictName(p.label.split(',')[0]);
+                        setDistrictName(p.district);
+                        setKhasraNo(p.khasra);
+                        setKhataNo(p.khata);
+                        setAcreageStr(String(p.acreage));
+                        setCropType(p.cropType);
                       }}
                       className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs rounded-lg transition-colors font-medium flex items-center space-x-1"
                     >

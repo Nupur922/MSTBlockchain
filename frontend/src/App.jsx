@@ -47,7 +47,7 @@ const toDisasterType = (hazard = '') => {
 const randomTxHash = () =>
   '0x' + Array.from({ length: 64 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
 
-function App({ onRegisterScenarioHandler, onTelemetryChange, onScenarioChange }) {
+function App({ onRegisterScenarioHandler, onTelemetryChange, onScenarioChange, selectedFarmer }) {
   // ── Scenario / map state ──────────────────────────────────────────────────
   const [activeScenario,  setActiveScenario]  = useState(null);
   const [qrScannedPlot,   setQrScannedPlot]   = useState(null);
@@ -496,6 +496,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, onScenarioChange })
           activeTelemetry={activeTelemetry}
           activeScenario={activeScenario}
           qrScannedPlot={qrScannedPlot}
+          selectedFarmer={selectedFarmer}
         />
 
         {/* 6. Two-Column Grid: Left (Actions + Map) | Right (Telemetry) */}

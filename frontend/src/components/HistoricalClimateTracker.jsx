@@ -239,25 +239,30 @@ function RainTempHistogram({ rainValues, tempValues, consensusDay }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export default function HistoricalClimateTracker({ activeTelemetry, activeScenario, qrScannedPlot }) {
+export default function HistoricalClimateTracker({ activeTelemetry, activeScenario, qrScannedPlot, selectedFarmer }) {
   const history = useMemo(() => {
     // Priority 1: active disaster scenario (Demo Control Panel button clicked)
     if (activeScenario && SCENARIO_HISTORY[activeScenario]) {
       return SCENARIO_HISTORY[activeScenario];
     }
-    // Priority 2: registered/scanned plot — use its state to pick climate history
+    // Priority 2: farmer selected in FarmerDashboard — use their scenario
+    if (selectedFarmer?.scenario && SCENARIO_HISTORY[selectedFarmer.scenario]) {
+      return SCENARIO_HISTORY[selectedFarmer.scenario];
+    }
+    // Priority 3: registered/scanned plot — use its state to pick climate history
     if (qrScannedPlot?.state) {
       const scenarioKey = STATE_TO_SCENARIO[qrScannedPlot.state];
       if (scenarioKey && SCENARIO_HISTORY[scenarioKey]) {
         return SCENARIO_HISTORY[scenarioKey];
       }
     }
-    // Priority 3: healthy baseline (no plot registered, no scenario active)
+    // Priority 4: healthy baseline (no plot registered, no scenario active)
     return DEFAULT_HISTORY;
-  }, [activeScenario, qrScannedPlot]);
+  }, [activeScenario, selectedFarmer, qrScannedPlot]);
 
-  // Resolve farmer name: scanned plot > scenario default > generic
-  const farmerName = qrScannedPlot?.farmerName
+  // Resolve farmer name: selectedFarmer > scanned plot > scenario default > generic
+  const farmerName = selectedFarmer?.name
+    || qrScannedPlot?.farmerName
     || qrScannedPlot?.ownerName
     || history.farmerName
     || null;

@@ -187,7 +187,7 @@ const HAZARD_BADGE = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FarmerDashboard = ({ krishiMitra, activeTelemetry, activeScenario, onSelectScenario, onBackToMain }) => {
+const FarmerDashboard = ({ krishiMitra, activeTelemetry, activeScenario, onSelectScenario, onBackToMain, onFarmerSelect }) => {
   const [farmers, setFarmers]               = useState([]);
   const [selectedFarmer, setSelectedFarmer] = useState(null);
   const [viewMode, setViewMode]             = useState('realtime');
@@ -303,6 +303,20 @@ const FarmerDashboard = ({ krishiMitra, activeTelemetry, activeScenario, onSelec
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Refresh farmer list (picks up newly enrolled farmers) */}
+            <button
+              onClick={loadFarmers}
+              disabled={loading}
+              title="Refresh farmer list from MST Blockchain"
+              className="border border-emerald-300 hover:bg-emerald-50 text-emerald-700 font-semibold text-xs px-3 py-2 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span>🔄</span>
+              )}
+              Refresh
+            </button>
             {/* Back to main dashboard */}
             {onBackToMain && (
               <button onClick={onBackToMain}
@@ -381,7 +395,7 @@ const FarmerDashboard = ({ krishiMitra, activeTelemetry, activeScenario, onSelec
               const isActive = activeScenario === farmer.scenario;
               return (
                 <div key={farmer.address + idx}
-                  onClick={() => { setSelectedFarmer(farmer); setImgError(false); }}
+                  onClick={() => { setSelectedFarmer(farmer); setImgError(false); if (onFarmerSelect) onFarmerSelect(farmer); }}
                   className={`bg-white rounded-xl border shadow-sm p-5 hover:shadow-md transition cursor-pointer ${isActive ? 'border-2 border-emerald-500 ring-1 ring-emerald-200' : 'border-slate-200'}`}>
 
                   <div className="flex items-start justify-between mb-3">

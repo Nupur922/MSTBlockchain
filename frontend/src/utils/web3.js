@@ -5,8 +5,27 @@ import contractAddresses from '../contracts/contract-addresses.json';
 import FarmRegistryABI from '../contracts/FarmRegistry.json';
 import AgriTrustVaultABI from '../contracts/AgriTrustVault.json';
 
-// Local Hardhat node configuration
-const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
+// ── Network configuration — reads from VITE_ env vars first, falls back to
+// Hardhat local node so the app works on both localhost AND MST Testnet. ──────
+const RPC_URL = import.meta.env?.VITE_MST_RPC_URL || 'http://127.0.0.1:8545';
+
+// Contract addresses: VITE_ env vars override contract-addresses.json
+// This lets the same build target both Hardhat (dev) and MST Testnet (live demo).
+const FARM_REGISTRY_ADDRESS =
+  import.meta.env?.VITE_FARM_REGISTRY_ADDRESS ||
+  contractAddresses?.contracts?.FarmRegistry ||
+  contractAddresses?.FarmRegistry ||
+  null;
+
+const VAULT_ADDRESS =
+  import.meta.env?.VITE_AGRITRUST_VAULT_ADDRESS ||
+  contractAddresses?.contracts?.AgriTrustVault ||
+  contractAddresses?.AgriTrustVault ||
+  null;
+
+// Keep backward-compat alias used in App.jsx event listener
+const HARDHAT_RPC_URL = RPC_URL;
+export { RPC_URL, HARDHAT_RPC_URL };
 
 /**
  * Connect to MetaMask or injected Web3 wallet
@@ -40,15 +59,15 @@ export const connectWallet = async () => {
 };
 
 /**
- * Connect to local Hardhat node directly
- * Useful for testing without MetaMask
+ * Connect to the configured RPC node directly (Hardhat local or MST Testnet)
+ * Useful for read-only calls and testing without MetaMask
  */
 export const connectToHardhat = async () => {
   try {
-    const provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
     const network = await provider.getNetwork();
     
-    // Get first account from Hardhat node
+    // Get first account from node (works on Hardhat; on testnet use a signer instead)
     const signer = await provider.getSigner(0);
     const address = await signer.getAddress();
 
@@ -59,7 +78,7 @@ export const connectToHardhat = async () => {
       chainId: network.chainId.toString(),
     };
   } catch (error) {
-    console.error('Error connecting to Hardhat:', error);
+    console.error('Error connecting to RPC node:', error);
     throw error;
   }
 };
@@ -121,7 +140,8 @@ export const parseEther = (eth) => {
  */
 export const getFarmRegistryContract = (signerOrProvider) => {
   try {
-    const address = contractAddresses.contracts.FarmRegistry;
+    // Use VITE_ env var address first, then fall back to contract-addresses.json
+    const address = FARM_REGISTRY_ADDRESS;
     const abi = FarmRegistryABI.abi;
     
     if (!address || !abi) {
@@ -143,7 +163,8 @@ export const getFarmRegistryContract = (signerOrProvider) => {
  */
 export const getAgriTrustVaultContract = (signerOrProvider) => {
   try {
-    const address = contractAddresses.contracts.AgriTrustVault;
+    // Use VITE_ env var address first, then fall back to contract-addresses.json
+    const address = VAULT_ADDRESS;
     const abi = AgriTrustVaultABI.abi;
     
     if (!address || !abi) {
