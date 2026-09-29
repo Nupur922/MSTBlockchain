@@ -15,7 +15,7 @@ import { useState } from 'react';
 import KrishiMitraLogin  from './pages/KrishiMitraLogin';
 import FarmerDashboard   from './pages/FarmerDashboard';
 
-function AppKrishiMitra({ activeTelemetry, activeScenario, onSelectScenario }) {
+function AppKrishiMitra({ activeTelemetry, activeScenario, onSelectScenario, onFarmerSelect }) {
   const [krishiMitra,      setKrishiMitra]      = useState(null);
   const [isAuthenticated,  setIsAuthenticated]  = useState(false);
 
@@ -40,6 +40,7 @@ function AppKrishiMitra({ activeTelemetry, activeScenario, onSelectScenario }) {
       activeScenario={activeScenario}
       onSelectScenario={onSelectScenario}
       onBackToMain={handleBackToMain}
+      onFarmerSelect={onFarmerSelect}
     />
   );
 }

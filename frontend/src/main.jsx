@@ -36,6 +36,10 @@ const AppRouter = () => {
   const [activeScenario,  setActiveScenario]  = useState(null);
   const [activeTelemetry, setActiveTelemetry] = useState(DEFAULT_TELEMETRY);
 
+  // Shared selectedFarmer state — lifted so clicking a farmer in Krishi portal
+  // updates the HistoricalClimateTracker on the main dashboard
+  const [selectedFarmer, setSelectedFarmer] = useState(null);
+
   // Keep App.jsx's handleTriggerScenario accessible from the Krishi portal
   // by storing it in a ref that App.jsx will populate via a callback prop
   const appScenarioHandlerRef = useRef(null);
@@ -65,6 +69,7 @@ const AppRouter = () => {
         activeTelemetry={activeTelemetry}
         activeScenario={activeScenario}
         onSelectScenario={handleSelectScenarioFromKrishi}
+        onFarmerSelect={setSelectedFarmer}
       />
     );
   }
@@ -77,6 +82,7 @@ const AppRouter = () => {
       onTelemetryChange={setActiveTelemetry}
       sharedActiveScenario={activeScenario}
       onScenarioChange={setActiveScenario}
+      selectedFarmer={selectedFarmer}
     />
   );
 };
