@@ -115,7 +115,7 @@ async function main() {
   ];
 
   console.log(`\n3️⃣  Enrolling ${samplePlots.length} Sample Farm Plots with Khasra / Khata / State records...`);
-  const insuredAmount = hre.ethers.parseEther('40000.0'); // ₹40,000 sum insured per plot
+  const insuredAmount = hre.ethers.parseEther('40.0'); // ₹40,000 sum insured — stored as 40 MST (1 MST = ₹1000 for demo)
 
   for (let i = 0; i < samplePlots.length; i++) {
     const p = samplePlots[i];
@@ -134,15 +134,15 @@ async function main() {
 
     const policyTx = await vault.createPolicy(i + 1, p.owner, insuredAmount);
     await policyTx.wait();
-    console.log(`   ✅ Policy #${i + 1} created for ${p.insuredMST} MST coverage (${p.state})`);
+    console.log(`   ✅ Policy #${i + 1} created — 40.0 MST coverage (${p.state})`);
   }
 
   // 4. Fund Escrow Vault — enough liquidity for every parametric payout scenario
-  console.log('\n4️⃣  Seeding AgriTrustVault with 500,000.0 MST Escrow Liquidity...');
-  const escrowFundAmount = hre.ethers.parseEther('500000.0');
+  console.log('\n4️⃣  Seeding AgriTrustVault with 500.0 MST Escrow Liquidity...');
+  const escrowFundAmount = hre.ethers.parseEther('500.0');
   const depositTx = await vault.depositEscrow({ value: escrowFundAmount });
   await depositTx.wait();
-  console.log('✅ AgriTrustVault successfully funded with 500,000.0 MST Tokens!');
+  console.log('✅ AgriTrustVault successfully funded with 500.0 MST Tokens!');
 
   // 4b. The AI Oracle key (agent/config/.env) is NOT one of the funded Hardhat
   //     accounts, so top it up with gas money — otherwise it cannot submit
@@ -228,6 +228,7 @@ async function main() {
   console.log('✅ ALL DEPLOYMENT ARTIFACTS & .ENV CONFIGS UPDATED!');
   console.log('   FarmRegistry :', registryAddress);
   console.log('   AgriTrustVault:', vaultAddress);
+  console.log('   Escrow Funded : 500.0 MST');
   console.log('   MST RPC URL   : http://127.0.0.1:8545');
   console.log('=========================================================================');
 }
