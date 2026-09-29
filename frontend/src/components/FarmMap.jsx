@@ -135,6 +135,15 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
 
   useEffect(() => { fetchOnChainPlots(); }, [fetchOnChainPlots]);
 
+  // Auto-retry every 5 seconds until chain connects
+  useEffect(() => {
+    if (chainConnected) return;
+    const id = setInterval(() => {
+      if (!chainConnected) fetchOnChainPlots();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [chainConnected, fetchOnChainPlots]);
+
   useEffect(() => {
     if (!qrScannedPlot) return;
     const newPlot = {
@@ -205,10 +214,11 @@ const FarmMap = ({ qrScannedPlot, activeScenario, onEnrollClick }) => {
       </div>
 
       {/* Error Banner */}
-      {errorMsg && (
+      {errorMsg && !chainConnected && (
         <div className="flex items-center space-x-2 mb-3 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{errorMsg}</span>
+          <RefreshCw className="w-3.5 h-3.5 flex-shrink-0 animate-spin" />
+          <span>Connecting to Hardhat node — retrying every 5s…</span>
+          <button onClick={fetchOnChainPlots} className="ml-auto underline font-bold hover:text-amber-900">Retry now</button>
         </div>
       )}
 
