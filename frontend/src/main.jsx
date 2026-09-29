@@ -83,6 +83,7 @@ const AppRouter = () => {
       sharedActiveScenario={activeScenario}
       onScenarioChange={setActiveScenario}
       selectedFarmer={selectedFarmer}
+      onFarmerSelect={setSelectedFarmer}
     />
   );
 };
