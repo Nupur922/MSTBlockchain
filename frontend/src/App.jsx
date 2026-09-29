@@ -270,7 +270,7 @@ function App({ onRegisterScenarioHandler, onTelemetryChange, selectedFarmer: sha
     const rejectionScenarios = {
       'nonexistent-plot': { label: 'Invalid Plot', reason: 'Plot ID 999 not found in FarmRegistry. EIP-191 proof verification fails; zero payout.' },
       'crop-mismatch': { label: 'Crop Mismatch', reason: 'Enrolled for Paddy, claim filed for Wheat. SAR radar texture and Sentinel-2 phenology do not match registered crop.' },
-      'harvest-confusion': { label: 'Stubble Shield', reason: 'NDVI drop is caused by seasonal dry harvest stubble, not flood/drought damage. Parametric claim rejected.' },
+      'harvest-confusion': { label: 'Stubble Shield', reason: 'NDVI dropped: yes, but only 1 of 3 feeds voted yes (SAR confirms dry bare soil, rain 0mm). Seasonal dry stubble harvest detected — claim rejected.' },
       'ghost-crop-fraud': { label: 'Ghost Crop Fraud', reason: 'Pre-existing weed vegetation flagged at enrollment. Non-cultivated land fraud detected.' },
     };
 

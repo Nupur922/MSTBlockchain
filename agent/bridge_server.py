@@ -164,6 +164,7 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         "payout_ratio": 0.0,
         "plot_id": "7",
         "payouts": False,
+        "rejection_reason": "NDVI dropped: yes, but only 1 of 3 feeds voted yes (SAR confirms dry bare soil, rain 0mm). Seasonal dry stubble harvest detected; claim rejected.",
     },
     "ghost-crop-fraud": {
         "label": "Ghost Crop Fraud Flagged (Claim Rejected)",
