@@ -1,4 +1,8 @@
 import '@nomicfoundation/hardhat-toolbox';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [];
 
 /** @type import('hardhat/config').HardhatUserConfig */
 const config = {
@@ -16,7 +20,32 @@ const config = {
     localhost: {
       url: 'http://127.0.0.1:8545',
       chainId: 31337,
+    },
+    mstTestnet: {
+      url: process.env.MST_TESTNET_RPC_URL || 'https://testnetrpc.mstblockchain.com',
+      chainId: 91562037,
+      accounts: accounts,
+    },
+    mstMainnet: {
+      url: 'https://mariorpc.mstblockchain.com',
+      chainId: 4646,
+      accounts: accounts,
     }
+  },
+  etherscan: {
+    apiKey: {
+      mstTestnet: process.env.MSTSCAN_API_KEY || 'empty',
+    },
+    customChains: [
+      {
+        network: 'mstTestnet',
+        chainId: 91562037,
+        urls: {
+          apiURL: 'https://testnet.mstscan.com/api',
+          browserURL: 'https://testnet.mstscan.com',
+        },
+      },
+    ],
   },
   paths: {
     sources: './contracts',

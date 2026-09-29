@@ -5,89 +5,32 @@ import contractAddresses from '../contracts/contract-addresses.json';
 import FarmRegistryABI from '../contracts/FarmRegistry.json';
 import AgriTrustVaultABI from '../contracts/AgriTrustVault.json';
 
-// Local Hardhat node configuration
+
+import { 
+  connectBridgeKey, 
+  switchOrAddMSTTestnet, 
+  isBridgeKeyInstalled, 
+  isMSTTestnetChain,
+  MST_TESTNET_CONFIG 
+} from './bridgekey';
+
+// Local and MST RPC configurations
 const HARDHAT_RPC_URL = 'http://127.0.0.1:8545';
+export const MST_TESTNET_RPC_URL = import.meta.env?.VITE_MST_RPC_URL || 'https://testnetrpc.mstblockchain.com';
 
 /**
- * Connect to MetaMask or injected Web3 wallet
+ * Connect to BridgeKey (or injected Web3 wallet)
  * Uses Ethers.js v6 BrowserProvider
  */
 export const connectWallet = async () => {
-  try {
-    if (!window.ethereum) {
-      throw new Error('MetaMask not found. Please install MetaMask.');
-    }
-
-    // Request account access
-    await window.ethereum.request({ method: 'eth_requestAccounts' });
-    
-    // Use Ethers v6 BrowserProvider (NOT Web3Provider)
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const address = await signer.getAddress();
-    const network = await provider.getNetwork();
-
-    return {
-      provider,
-      signer,
-      address,
-      chainId: network.chainId.toString(),
-    };
-  } catch (error) {
-    console.error('Error connecting wallet:', error);
-    throw error;
-  }
+  return await connectBridgeKey();
 };
 
 /**
- * Connect to local Hardhat node directly
- * Useful for testing without MetaMask
+ * Switch wallet to MST Testnet
  */
-export const connectToHardhat = async () => {
-  try {
-    const provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
-    const network = await provider.getNetwork();
-    
-    // Get first account from Hardhat node
-    const signer = await provider.getSigner(0);
-    const address = await signer.getAddress();
-
-    return {
-      provider,
-      signer,
-      address,
-      chainId: network.chainId.toString(),
-    };
-  } catch (error) {
-    console.error('Error connecting to Hardhat:', error);
-    throw error;
-  }
-};
-
-/**
- * Switch to local Hardhat network in MetaMask
- */
-export const switchToHardhat = async () => {
-  try {
-    await window.ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: '0x7A69' }], // 31337 in hex (Hardhat default)
-    });
-  } catch (error) {
-    // If network doesn't exist, add it
-    if (error.code === 4902) {
-      await window.ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: '0x7A69',
-          chainName: 'Hardhat Local',
-          rpcUrls: [HARDHAT_RPC_URL],
-        }],
-      });
-    } else {
-      throw error;
-    }
-  }
+export const switchToMSTTestnet = async () => {
+  return await switchOrAddMSTTestnet();
 };
 
 /**
@@ -114,6 +57,29 @@ export const parseEther = (eth) => {
   return ethers.parseEther(eth);
 };
 
+export const getActiveContractAddresses = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('agritrust_mst_testnet_contracts');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.FarmRegistry && parsed?.AgriTrustVault) {
+          return {
+            FarmRegistry: parsed.FarmRegistry,
+            AgriTrustVault: parsed.AgriTrustVault,
+          };
+        }
+      }
+    } catch (e) {
+      // ignore JSON parse errors
+    }
+  }
+  return {
+    FarmRegistry: import.meta.env?.VITE_FARM_REGISTRY_ADDRESS || contractAddresses?.contracts?.FarmRegistry,
+    AgriTrustVault: import.meta.env?.VITE_AGRITRUST_VAULT_ADDRESS || contractAddresses?.contracts?.AgriTrustVault,
+  };
+};
+
 /**
  * Initialize FarmRegistry contract instance
  * @param {ethers.Signer | ethers.Provider} signerOrProvider - Ethers signer or provider
@@ -121,7 +87,7 @@ export const parseEther = (eth) => {
  */
 export const getFarmRegistryContract = (signerOrProvider) => {
   try {
-    const address = contractAddresses.contracts.FarmRegistry;
+    const address = getActiveContractAddresses().FarmRegistry;
     const abi = FarmRegistryABI.abi;
     
     if (!address || !abi) {
@@ -143,7 +109,7 @@ export const getFarmRegistryContract = (signerOrProvider) => {
  */
 export const getAgriTrustVaultContract = (signerOrProvider) => {
   try {
-    const address = contractAddresses.contracts.AgriTrustVault;
+    const address = getActiveContractAddresses().AgriTrustVault;
     const abi = AgriTrustVaultABI.abi;
     
     if (!address || !abi) {

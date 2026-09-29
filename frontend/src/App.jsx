@@ -10,6 +10,7 @@ import VoiceAlertModal      from './components/VoiceAlertModal';
 import AePSCashoutModal     from './components/AePSCashoutModal';
 import QRScannerModal       from './components/QRScannerModal';
 import FarmerEnrollmentModal from './components/FarmerEnrollmentModal';
+import DeployTestnetModal    from './components/DeployTestnetModal';
 
 import { getAgriTrustVaultContract } from './utils/web3';
 
@@ -17,6 +18,20 @@ const HARDHAT_RPC_URL              = 'http://127.0.0.1:8545';
 const EVENT_LISTENER_RETRY_MS      = 8000;
 
 function App() {
+  // ── BridgeKey wallet state ───────────────────────────────────────────────
+  const [walletState, setWalletState] = useState({
+    isConnected: false,
+    address: '',
+    chainId: null,
+    isMSTTestnet: false,
+    provider: null,
+    signer: null,
+  });
+
+  const handleWalletChange = useCallback((newState) => {
+    setWalletState((prev) => ({ ...prev, ...newState }));
+  }, []);
+
   // ── Scenario / map state ──────────────────────────────────────────────────
   const [activeScenario,  setActiveScenario]  = useState(null);
   const [qrScannedPlot,   setQrScannedPlot]   = useState(null);
@@ -36,6 +51,7 @@ function App() {
   const [showAePS,     setShowAePS]     = useState(false);
   const [showQR,       setShowQR]       = useState(false);
   const [showEnroll,   setShowEnroll]   = useState(false);
+  const [showDeploy,   setShowDeploy]   = useState(false);
 
   // ── Chain connection ──────────────────────────────────────────────────────
   const [chainStatus,  setChainStatus]  = useState('disconnected');
@@ -49,12 +65,20 @@ function App() {
   // ── Map refresh trigger ───────────────────────────────────────────────────
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
 
-  // ─── Event Listener ──────────────────────────────────────────────────────
+  // ─── Event Listener (MST Testnet + Local Hardhat) ─────────────────────────
 
   const setupEventListener = useCallback(async () => {
     try {
-      const provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
-      await provider.getNetwork();
+      // 1. Try MST Testnet RPC first
+      let provider = null;
+      try {
+        provider = new ethers.JsonRpcProvider('https://testnetrpc.mstblockchain.com');
+        await provider.getNetwork();
+      } catch (mstRpcErr) {
+        // Fallback to local hardhat node
+        provider = new ethers.JsonRpcProvider(HARDHAT_RPC_URL);
+        await provider.getNetwork();
+      }
 
       const contract = getAgriTrustVaultContract(provider);
       if (!contract) {
@@ -66,11 +90,9 @@ function App() {
       providerRef.current  = provider;
       contractRef.current  = contract;
 
-      // ✅ Janaki's real event: DisasterPayoutExecuted
-      // Params: policyId, plotId, farmer, payoutAmountMST, proofHash, timestamp
       contract.on('DisasterPayoutExecuted',
         (policyId, plotId, farmer, payoutAmountMST, proofHash, timestamp) => {
-          console.log('🚨 DisasterPayoutExecuted:', {
+          console.log('🚨 DisasterPayoutExecuted on MST Blockchain:', {
             policyId: policyId.toString(),
             plotId:   plotId.toString(),
             farmer,
@@ -96,7 +118,7 @@ function App() {
     } catch (err) {
       chainStatusRef.current = 'disconnected';
       setChainStatus('disconnected');
-      console.info('Hardhat not reachable, retrying…', err.message);
+      console.info('Node not reachable, retrying…', err.message);
     }
   }, []);
 
@@ -207,7 +229,7 @@ function App() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header walletState={walletState} onWalletChange={handleWalletChange} />
 
       {/* ── Modals ── */}
       <VoiceAlertModal
@@ -233,6 +255,12 @@ function App() {
         isOpen={showEnroll}
         onClose={() => setShowEnroll(false)}
         onEnrolled={handleEnrolled}
+        walletState={walletState}
+      />
+      <DeployTestnetModal
+        isOpen={showDeploy}
+        onClose={() => setShowDeploy(false)}
+        onContractsDeployed={() => setMapRefreshKey((k) => k + 1)}
       />
 
       {/* ── Dashboard ── */}
@@ -243,23 +271,29 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Map column */}
           <div>
-            {/* QR Scan + Enroll buttons */}
-            <div className="flex justify-end space-x-2 mb-2">
+            {/* Deploy + QR Scan + Enroll buttons */}
+            <div className="flex flex-wrap justify-end gap-2 mb-2">
+              <button
+                onClick={() => setShowDeploy(true)}
+                className="flex items-center space-x-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-950 font-bold text-xs rounded-lg transition-all transform hover:scale-105 shadow-md"
+              >
+                <span>🚀 Deploy to MST Testnet</span>
+              </button>
               <button
                 onClick={() => setShowQR(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
+                className="flex items-center space-x-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                 </svg>
-                <span>Scan / Upload Land Record QR</span>
+                <span>Scan / Upload QR</span>
               </button>
               <button
                 onClick={() => setShowEnroll(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
+                className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-all transform hover:scale-105 shadow-md"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
                 <span>Enroll Farmer</span>
