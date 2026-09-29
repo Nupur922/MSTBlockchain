@@ -206,6 +206,8 @@ class VoiceNotifierFactory:
     def get(cls) -> VoiceNotifier:
         if cls._instance is None:
             cls._instance = VoiceNotifier(enable_audio=False)
+        else:
+            cls._instance._refresh_credentials()
         return cls._instance
 
 

@@ -220,6 +220,23 @@ class VoiceNotifier:
         else:
             logger.info("💬  UltraMsg WhatsApp not configured — add ULTRAMSG_INSTANCE_ID and ULTRAMSG_TOKEN to .env for WhatsApp alerts")
 
+    def _refresh_credentials(self):
+        """Re-read credentials from .env so any runtime updates are picked up instantly."""
+        from dotenv import load_dotenv
+        load_dotenv(dotenv_path=_ENV_PATH, override=True)
+        self._twilio_sid   = os.getenv("TWILIO_ACCOUNT_SID", "")
+        self._twilio_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+        self._twilio_from  = os.getenv("TWILIO_PHONE_NUMBER", "")
+        self._ultramsg_instance_id = os.getenv("ULTRAMSG_INSTANCE_ID", "").strip()
+        self._ultramsg_token       = os.getenv("ULTRAMSG_TOKEN", "").strip()
+        self._ultramsg_whatsapp_number = os.getenv("ULTRAMSG_WHATSAPP_NUMBER", "").strip()
+        if self.twilio_configured and self._twilio_client is None:
+            try:
+                from twilio.rest import Client
+                self._twilio_client = Client(self._twilio_sid, self._twilio_token)
+            except Exception:
+                pass
+
     @property
     def twilio_configured(self) -> bool:
         return bool(
@@ -663,6 +680,7 @@ class VoiceNotifier:
         Sends an automated WhatsApp alert directly to the farmer's WhatsApp via UltraMsg API.
         Zero TRAI DLT registration required — works instantly on Indian (+91) phone numbers.
         """
+        self._refresh_credentials()
         # Fallback to configured WhatsApp phone number if dummy or empty
         env_to = (
             self._ultramsg_whatsapp_number

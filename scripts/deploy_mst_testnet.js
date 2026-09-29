@@ -13,23 +13,22 @@ async function main() {
 
   const [deployer] = await hre.ethers.getSigners();
   if (!deployer) {
-    throw new Error('No deployer account configured. Set PRIVATE_KEY in .env file.');
+    throw new Error('No deployer account configured. Set DEPLOYER_PRIVATE_KEY in .env file.');
   }
 
   const balance = await hre.ethers.provider.getBalance(deployer.address);
   console.log('👤 Deployer Address:           ', deployer.address);
-  console.log('💰 Deployer Balance:           ', hre.ethers.formatEther(balance), 'MSTC');
+  console.log('💰 Deployer Balance:           ', hre.ethers.formatEther(balance), 'MST');
   console.log('🌐 Network:                    ', hre.network.name, `(Chain ID: ${hre.network.config.chainId})`);
   console.log('-------------------------------------------------------------------------');
 
   if (balance === 0n) {
     throw new Error(
-      `Deployer account ${deployer.address} has 0 MSTC. Please claim 10 MSTC from https://faucet.masterstroke.academy before deploying.`
+      `Deployer account ${deployer.address} has 0 MST. Please fund with MST before deploying.`
     );
   }
 
   const oracleAddress = process.env.AI_ORACLE_ADDRESS || deployer.address;
-  const farmerAddress = deployer.address;
 
   // 1. Deploy FarmRegistry
   console.log('\n1️⃣ Deploying FarmRegistry.sol (Land Parcel & Geofencing Registry)...');
@@ -49,47 +48,140 @@ async function main() {
   console.log('✅ AgriTrustVault deployed at: ', vaultAddress);
   console.log('   Explorer:                   ', `https://testnet.mstscan.com/address/${vaultAddress}`);
 
-  // 3. Register Sample Farm Plot (Darbhanga, Bihar - Kosi River Basin)
-  console.log('\n3️⃣ Enrolling Sample Farm Plot #1 on MST Testnet...');
-  const sampleGeoJSON = JSON.stringify({
-    type: 'Polygon',
-    coordinates: [[
-      [85.8971, 26.1522],
-      [85.8985, 26.1525],
-      [85.8982, 26.1510],
-      [85.8968, 26.1508],
-      [85.8971, 26.1522]
-    ]]
-  });
+  // 3. Register All 6 Farmers on MST Testnet
+  console.log('\n3️⃣ Enrolling 6 Regional Farm Plots & DIDs on MST Testnet...');
+  
+  const FARMERS_TO_ENROLL = [
+    {
+      name: 'Prasanta Kalita',
+      wallet: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+      crop: 'Sali Paddy (Rice)',
+      acreage: 180,
+      khasra: 'Patta #104/B',
+      khata: 'Khata #27/3',
+      state: 'Assam',
+      district: 'Majuli',
+      did: 'did:mst:farmer:0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
+      coverage: '0.65',
+      lat: 26.9535, lng: 94.2045,
+    },
+    {
+      name: 'Ram Singh',
+      wallet: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BD',
+      crop: 'Paddy (Rice)',
+      acreage: 250,
+      khasra: 'Khatiyan #214/A',
+      khata: 'Khata #55/1',
+      state: 'Bihar',
+      district: 'Darbhanga',
+      did: 'did:mst:farmer:0x3c44cdddb6a900fa2b585dd299e03d12fa4293bd',
+      coverage: '0.50',
+      lat: 26.1522, lng: 85.8971,
+    },
+    {
+      name: 'Eknath Patil',
+      wallet: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+      crop: 'Grapes / Onion',
+      acreage: 320,
+      khasra: '7/12 Extract #88/2',
+      khata: 'Khata #12/4',
+      state: 'Maharashtra',
+      district: 'Nashik',
+      did: 'did:mst:farmer:0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+      coverage: '0.50',
+      lat: 19.9975, lng: 73.7898,
+    },
+    {
+      name: 'Gurpreet Singh',
+      wallet: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+      crop: 'Wheat',
+      acreage: 400,
+      khasra: 'Jamabandi #45/1',
+      khata: 'Khata #33/2',
+      state: 'Punjab',
+      district: 'Ludhiana',
+      did: 'did:mst:farmer:0x15d34aaf54267db7d7c367839aaf71a00a2c6a65',
+      coverage: '0.40',
+      lat: 30.9010, lng: 75.8573,
+    },
+    {
+      name: 'Lakshmamma',
+      wallet: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc',
+      crop: 'Sugarcane / Paddy',
+      acreage: 280,
+      khasra: 'RTC #112/3',
+      khata: 'Khata #99/1',
+      state: 'Karnataka',
+      district: 'Mandya',
+      did: 'did:mst:farmer:0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc',
+      coverage: '0.70',
+      lat: 12.5218, lng: 76.8951,
+    },
+    {
+      name: 'Murugan',
+      wallet: '0x976EA74026E726554dB657fA54763abd0C3a0aa9',
+      crop: 'Samba Paddy',
+      acreage: 210,
+      khasra: 'Patta #78/1A',
+      khata: 'Khata #44/2',
+      state: 'Tamil Nadu',
+      district: 'Thanjavur',
+      did: 'did:mst:farmer:0x976ea74026e726554db657fa54763abd0c3a0aa9',
+      coverage: '0.75',
+      lat: 10.7870, lng: 79.1378,
+    },
+  ];
 
-  const regTx = await farmRegistry.registerFarmPlot(
-    farmerAddress,
-    sampleGeoJSON,
-    250, // 2.5 Acres
-    'Paddy (Rice)',
-    'Khasra #104/B',
-    'Khata #27/3',
-    'Bihar',
-    'Darbhanga'
-  );
-  await regTx.wait();
-  console.log('✅ Farm Plot #1 registered on-chain for:', farmerAddress);
+  for (let i = 0; i < FARMERS_TO_ENROLL.length; i++) {
+    const f = FARMERS_TO_ENROLL[i];
+    const farmerWallet = hre.ethers.getAddress(f.wallet.toLowerCase());
+    const geo = JSON.stringify({
+      type: 'Polygon',
+      coordinates: [[
+        [f.lng, f.lat],
+        [f.lng + 0.0015, f.lat],
+        [f.lng + 0.0015, f.lat - 0.0015],
+        [f.lng, f.lat - 0.0015],
+        [f.lng, f.lat]
+      ]]
+    });
 
-  // 4. Create Active Policy
-  console.log('\n4️⃣ Creating Active Crop Policy for Plot #1...');
-  const insuredAmount = hre.ethers.parseEther('0.5'); // 0.5 MSTC coverage for testnet
-  const policyTx = await vault.createPolicy(1, farmerAddress, insuredAmount);
-  await policyTx.wait();
-  console.log('✅ Policy #1 created for 0.5 MSTC Coverage!');
+    const regTx = await farmRegistry.registerFarmPlot(
+      farmerWallet,
+      geo,
+      f.acreage,
+      f.crop,
+      f.khasra,
+      f.khata,
+      f.state,
+      f.district
+    );
+    await regTx.wait();
 
-  // 5. Seed Escrow Vault with Initial Liquidity
-  console.log('\n5️⃣ Seeding AgriTrustVault with 1.0 MSTC Escrow Liquidity...');
-  const escrowFundAmount = hre.ethers.parseEther('1.0');
+    // Register DID
+    try {
+      const didTx = await farmRegistry.registerFarmerDID(farmerWallet, f.did);
+      await didTx.wait();
+    } catch (e) {
+      console.warn(`Could not set DID for ${f.name}:`, e.message);
+    }
+
+    // Create policy in vault
+    const coverageWei = hre.ethers.parseEther(f.coverage);
+    const polTx = await vault.createPolicy(i + 1, farmerWallet, coverageWei);
+    await polTx.wait();
+
+    console.log(`✅ Plot #${i + 1} enrolled: ${f.name} (${f.state}) — Coverage: ${f.coverage} MST`);
+  }
+
+  // 4. Seed Escrow Vault with Initial Liquidity
+  console.log('\n4️⃣ Seeding AgriTrustVault with 2.0 MST Escrow Liquidity...');
+  const escrowFundAmount = hre.ethers.parseEther('2.0');
   const depositTx = await vault.depositEscrow({ value: escrowFundAmount });
   await depositTx.wait();
-  console.log('✅ AgriTrustVault seeded with 1.0 MSTC Escrow Liquidity!');
+  console.log('✅ AgriTrustVault seeded with 2.0 MST Escrow Liquidity!');
 
-  // 6. Export Contract Addresses & ABIs
+  // 5. Export Contract Addresses & ABIs
   const configData = {
     network: 'mstTestnet',
     chainId: 91562037,
@@ -102,7 +194,7 @@ async function main() {
     accounts: {
       deployer: deployer.address,
       aiOracleWallet: oracleAddress,
-      farmerWallet: farmerAddress,
+      farmerWallet: FARMERS_TO_ENROLL[0].wallet,
     },
     deployedAt: new Date().toISOString(),
   };

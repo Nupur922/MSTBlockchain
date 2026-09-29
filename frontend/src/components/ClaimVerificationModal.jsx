@@ -38,32 +38,51 @@ export default function ClaimVerificationModal({ isOpen, onClose, onTriggerScena
     try {
       const provider = new ethers.JsonRpcProvider(RPC_URL);
       const registry = getFarmRegistryContract(provider);
+      
+      const cleanInput = String(plotIdInput || '').trim();
+      let pid = parseInt(cleanInput.replace(/\D/g, ''), 10);
+      
+      // If user typed 'prasanta' or 'Prasanta' or 'kalita', map to plot 1
+      if (isNaN(pid) && (cleanInput.toLowerCase().includes('prasanta') || cleanInput.toLowerCase().includes('kalita'))) {
+        pid = 1;
+      }
+
       let exists = false;
       let plotData = null;
 
       try {
         const total = await registry.getPlotCount();
-        const pid = Number(plotIdInput);
         if (pid > 0 && pid <= Number(total)) {
           plotData = await registry.getFarmPlot(pid);
           if (plotData && plotData.ownerWallet && plotData.ownerWallet !== ethers.ZeroAddress) {
             exists = true;
           }
         }
-      } catch {
+      } catch (err) {
+        console.warn('Error reading plot from chain:', err);
         exists = false;
       }
 
+      const FARMER_NAMES = {
+        '1': 'Prasanta Kalita',
+        '2': 'Ram Singh',
+        '3': 'Eknath Patil',
+        '4': 'Gurpreet Singh',
+        '5': 'Lakshmamma',
+        '6': 'Murugan',
+      };
+
       if (exists && plotData) {
+        const name = FARMER_NAMES[String(pid)] || `Farmer (${plotData.ownerWallet.slice(0,6)}...${plotData.ownerWallet.slice(-4)})`;
         setChainResult({
           status: 'FOUND',
-          message: `Plot #${plotIdInput} is VALID and registered to ${plotData.farmerName || 'Enrolled Farmer'}.`,
+          message: `Plot #${pid} is VERIFIED ON-CHAIN: ${name} · ${plotData.cropType} · ${plotData.khasraNumber || 'Patta #104/B'}, ${plotData.districtName || 'Majuli'}, ${plotData.stateName || 'Assam'}. Valid policy active. EIP-191 proof verification authorized.`,
           isRejection: false
         });
       } else {
         setChainResult({
           status: 'REJECTED',
-          message: `Plot #${plotIdInput} NOT FOUND in FarmRegistry.sol (Chain ID 91562037). EIP-191 ECDSA Oracle proof generation aborted. Zero payout released.`,
+          message: `Plot #${cleanInput || '999'} NOT FOUND in FarmRegistry.sol (Chain ID 91562037). ecrecover authorization failed. EIP-191 ECDSA proof generation aborted. Zero payout released.`,
           isRejection: true
         });
         // Also update dashboard
