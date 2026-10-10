@@ -346,6 +346,70 @@ class BridgeHandler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------------ POST
 
     def do_POST(self):
+        # ── Tel-Agent Open-Source AI Receptionist Chatbot Endpoint ─────
+        if self.path == "/api/tel-agent/chat":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length) if length else b"{}"
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+            except Exception as exc:
+                self._send_json(400, {"status": "error", "message": f"Invalid JSON body: {exc}"})
+                return
+
+            user_msg = str(payload.get("message") or payload.get("user_message") or "").strip()
+            if not user_msg:
+                self._send_json(400, {"status": "error", "message": "Missing required 'message' field"})
+                return
+
+            farmer_name = str(payload.get("farmerName") or "Ram Singh")
+            location = str(payload.get("location") or "Darbhanga, Bihar")
+            khasra_no = str(payload.get("khasraNo") or "104/A")
+
+            try:
+                from tel_agent_notifier import TelAgentNotifier
+                telagent = TelAgentNotifier()
+                result = telagent.process_ai_receptionist_query(
+                    user_message=user_msg,
+                    farmer_name=farmer_name,
+                    location=location,
+                    khasra_no=khasra_no,
+                )
+                self._send_json(200, {
+                    "status": "success",
+                    "reply": result.get("reply"),
+                    "intent": result.get("intent"),
+                    "source": result.get("source"),
+                    "farmer": farmer_name,
+                })
+            except Exception as e:
+                logger.warning("Tel-Agent chatbot handling error: %s", e)
+                self._send_json(500, {"status": "error", "message": str(e)})
+            return
+
+        if self.path == "/api/tel-agent/call":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                raw = self.rfile.read(length) if length else b"{}"
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+                from tel_agent_notifier import TelAgentNotifier
+                telagent = TelAgentNotifier()
+                target_phone = str(payload.get("phone") or "+917483799325")
+                farmer_name = str(payload.get("farmerName") or "Ram Singh")
+                payout_inr = float(payload.get("payoutInr") or 25000)
+                damage_pct = float(payload.get("damagePct") or 76.0)
+                disaster_type = str(payload.get("disasterType") or "Flood")
+                res = telagent.trigger_voice_call(
+                    to_phone_number=target_phone,
+                    farmer_name=farmer_name,
+                    payout_inr=payout_inr,
+                    damage_pct=damage_pct,
+                    disaster_type=disaster_type,
+                )
+                self._send_json(200, {"status": "success", "result": res})
+            except Exception as e:
+                self._send_json(500, {"status": "error", "message": str(e)})
+            return
+
         if self.path != "/api/trigger-call":
             self._send_json(404, {"status": "error", "message": f"Unknown POST path {self.path}"})
             return

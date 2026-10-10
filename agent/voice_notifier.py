@@ -220,6 +220,15 @@ class VoiceNotifier:
         else:
             logger.info("💬  UltraMsg WhatsApp not configured — add ULTRAMSG_INSTANCE_ID and ULTRAMSG_TOKEN to .env for WhatsApp alerts")
 
+        # Tel-Agent Open-Source AI Gateway
+        try:
+            from tel_agent_notifier import TelAgentNotifier
+            self._telagent = TelAgentNotifier()
+        except Exception as e:
+            self._telagent = None
+            logger.debug("Tel-Agent init skipped: %s", e)
+
+
     def _refresh_credentials(self):
         """Re-read credentials from .env so any runtime updates are picked up instantly."""
         from dotenv import load_dotenv
@@ -806,7 +815,42 @@ class VoiceNotifier:
             pdf_path=document,
         )
 
-        return {"call_sid": call_sid, "whatsapp": whatsapp_res}
+        # 3. Tel-Agent Open-Source AI Gateway Multi-Channel Dispatch (Voice Call + SMS + WhatsApp)
+        telagent_res = None
+        if self._telagent:
+            try:
+                telagent_res = {
+                    "call": self._telagent.trigger_voice_call(
+                        to_phone_number=to_phone_number,
+                        farmer_name=farmer_name,
+                        payout_inr=payout_inr,
+                        damage_pct=damage_pct,
+                        disaster_type=disaster_type,
+                        language=language,
+                        location=location or "Darbhanga, Bihar",
+                    ),
+                    "sms": self._telagent.send_sms(
+                        to_phone_number=to_phone_number,
+                        farmer_name=farmer_name,
+                        payout_inr=payout_inr,
+                        damage_pct=damage_pct,
+                        disaster_type=disaster_type,
+                        tx_hash=tx_hash,
+                    ),
+                    "whatsapp": self._telagent.send_whatsapp(
+                        to_phone_number=to_phone_number,
+                        farmer_name=farmer_name,
+                        payout_inr=payout_inr,
+                        damage_pct=damage_pct,
+                        disaster_type=disaster_type,
+                        tx_hash=tx_hash,
+                    ),
+                }
+            except Exception as te:
+                logger.warning("Tel-Agent automated alert dispatch skipped: %s", te)
+
+        return {"call_sid": call_sid, "whatsapp": whatsapp_res, "telagent": telagent_res}
+
 
 
     # ------------------------------------------------------------------
